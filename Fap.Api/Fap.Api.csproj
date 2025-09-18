@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- Dùng gói OpenAPI tương ứng .NET 8 -->
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.*" />
+		<!-- EF Tools 8.x -->
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.*">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+		<!-- Swagger 6.x vẫn OK -->
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.*" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Fap.Domain\Fap.Domain.csproj" />
+		<ProjectReference Include="..\Fap.Infrastructure\Fap.Infrastructure.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Folder Include="Services\" />
+	</ItemGroup>
+</Project>
