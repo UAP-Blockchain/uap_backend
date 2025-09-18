@@ -48,7 +48,7 @@ The system is built on a hybrid architecture combining on-chain (Ethereum Quorum
    ```bash
    git clone https://github.com/your-username/FapBlockchain.git
    cd FapBlockchain/Fap.Api
-````
+
 
 2. Install dependencies:
 
@@ -113,6 +113,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 * Inspired by the need for secure and verifiable academic record management.
 * Special thanks to the developers of **Ethereum Quorum** and **Solidity** for providing the blockchain framework.
-
 
 
