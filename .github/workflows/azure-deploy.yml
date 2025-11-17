@@ -1,0 +1,69 @@
+﻿name: Deploy FAP API to Azure
+
+on:
+  push:
+    branches: [ main ]  
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: uap-blockchain    
+  DOTNET_VERSION: '8.0.x'
+  PROJECT_PATH: './Fap.Api/Fap.Api.csproj'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    name: Build and Deploy to Azure
+    
+    steps:
+    - name: 🔽 Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: ⚙️ Setup .NET ${{ env.DOTNET_VERSION }}
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: 📦 Restore dependencies
+      run: dotnet restore
+      
+    - name: 🔨 Build application
+      run: dotnet build --configuration Release --no-restore
+    
+    - name: 🧪 Run tests
+      run: dotnet test --no-build --verbosity normal --configuration Release
+      continue-on-error: true
+
+    - name: 📤 Publish application
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} \
+        --configuration Release \
+        --output ${{ github.workspace }}/publish \
+        --no-build
+  
+    - name: 🚀 Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: ${{ github.workspace }}/publish
+
+    - name: ✅ Deployment completed successfully
+      if: success()
+      run: |
+        echo "=========================================="
+        echo "✅ Deployment successful!"
+        echo "🌐 API URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        echo "📊 Swagger: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/swagger"
+        echo "📅 Deployed at: $(date)"
+        echo "🔖 Commit: ${{ github.sha }}"
+        echo "👤 Author: ${{ github.actor }}"
+        echo "=========================================="
+    
+    - name: ❌ Deployment failed
+      if: failure()
+      run: |
+        echo "=========================================="
+        echo "❌ Deployment failed!"
+        echo "Please check the logs above for errors."
+        echo "=========================================="

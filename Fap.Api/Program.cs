@@ -188,11 +188,14 @@ using (var scope = app.Services.CreateScope())
 // ==================================================
 // MIDDLEWARE PIPELINE
 // ==================================================
-if (app.Environment.IsDevelopment())
+
+// ✅ BẬT SWAGGER CHO CẢ PRODUCTION (Azure)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "UAP API v1");
+    c.RoutePrefix = "swagger"; // URL: /swagger
+});
 
 // ==================================================
 // USE CORS (MUST BE BEFORE Authentication & Authorization)
