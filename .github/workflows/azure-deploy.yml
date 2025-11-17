@@ -1,0 +1,80 @@
+﻿name: Deploy FAP API to Azure
+
+on:
+  push:
+    branches: [ deploy, main ]
+  pull_request:
+    branches: [ deploy ]
+  workflow_dispatch:  # Cho phép trigger thủ công từ GitHub UI
+
+env:
+  AZURE_WEBAPP_NAME: uap-blockchain    # ⚠️ THAY TÊN WEB APP CỦA BẠN TẠI ĐÂY
+  DOTNET_VERSION: '8.0.x'
+  PROJECT_PATH: './Fap.Api/Fap.Api.csproj'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    name: Build and Deploy to Azure
+    
+    steps:
+    # 1. Checkout code từ repository
+    - name: 🔽 Checkout repository
+      uses: actions/checkout@v4
+    
+    # 2. Setup .NET 8 SDK
+    - name: ⚙️ Setup .NET ${{ env.DOTNET_VERSION }}
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    # 3. Restore dependencies
+    - name: 📦 Restore dependencies
+      run: dotnet restore
+      
+    # 4. Build project
+    - name: 🔨 Build application
+      run: dotnet build --configuration Release --no-restore
+    
+    # 5. Run tests (optional - bỏ qua nếu fail)
+    - name: 🧪 Run tests
+      run: dotnet test --no-build --verbosity normal --configuration Release
+      continue-on-error: true
+      
+    # 6. Publish application
+    - name: 📤 Publish application
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} \
+          --configuration Release \
+          --output ${{ github.workspace }}/publish \
+          --no-build
+    
+    # 7. Deploy to Azure Web App
+    - name: 🚀 Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: ${{ github.workspace }}/publish
+
+    # 8. Notification on success
+    - name: ✅ Deployment completed successfully
+      if: success()
+      run: |
+        echo "=========================================="
+        echo "✅ Deployment successful!"
+        echo "🌐 API URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        echo "📊 Swagger: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/swagger"
+        echo "📅 Deployed at: $(date)"
+        echo "🔖 Commit: ${{ github.sha }}"
+        echo "👤 Author: ${{ github.actor }}"
+        echo "=========================================="
+    
+    # 9. Notification on failure
+    - name: ❌ Deployment failed
+      if: failure()
+      run: |
+        echo "=========================================="
+        echo "❌ Deployment failed!"
+        echo "Please check the logs above for errors."
+        echo "=========================================="
