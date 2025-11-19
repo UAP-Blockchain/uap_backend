@@ -15,8 +15,9 @@ namespace Fap.Infrastructure.Repositories
         public IPermissionRepository Permissions { get; }
         public IOtpRepository Otps { get; }
         public IClassRepository Classes { get; }
+        public IClassMemberRepository ClassMembers { get; }
         public ISubjectRepository Subjects { get; }
-        public ISubjectOfferingRepository SubjectOfferings { get; } // ✅ NEW
+        public ISubjectOfferingRepository SubjectOfferings { get; }
         public ITimeSlotRepository TimeSlots { get; }
         public ISemesterRepository Semesters { get; }
         public IEnrollRepository Enrolls { get; }
@@ -36,8 +37,9 @@ namespace Fap.Infrastructure.Repositories
             Permissions = new PermissionRepository(context);
             Otps = new OtpRepository(context);
             Classes = new ClassRepository(context);
+            ClassMembers = new ClassMemberRepository(context); 
             Subjects = new SubjectRepository(context);
-            SubjectOfferings = new SubjectOfferingRepository(context); // ✅ NEW
+            SubjectOfferings = new SubjectOfferingRepository(context); 
             TimeSlots = new TimeSlotRepository(context);
             Semesters = new SemesterRepository(context);
             Enrolls = new EnrollRepository(context);

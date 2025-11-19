@@ -178,15 +178,39 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<FapDbContext>();
     try
     {
-        Console.WriteLine("Applying migrations...");
+        Console.WriteLine("==============================================");
+        Console.WriteLine("🔄 Database initialization started...");
+        Console.WriteLine("==============================================");
+        
+        // Check if --force-seed argument is provided
+        bool forceSeed = args.Contains("--force-seed");
+        
+        if (forceSeed)
+        {
+            Console.WriteLine("⚠️  --force-seed detected: Dropping database...");
+            await db.Database.EnsureDeletedAsync();
+  Console.WriteLine("✅ Database dropped successfully");
+        }
+  
+        Console.WriteLine("🔄 Applying migrations...");
         await db.Database.MigrateAsync();
+        Console.WriteLine("✅ Migrations applied successfully");
+        
+  Console.WriteLine("");
         await DataSeeder.SeedAsync(db);
-        Console.WriteLine("Database migration & seeding done!");
+        Console.WriteLine("");
+        
+     Console.WriteLine("==============================================");
+        Console.WriteLine("✅ Database initialization completed!");
+        Console.WriteLine("==============================================");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Database migration failed: {ex.Message}");
-        Console.WriteLine("Skipping migration, continuing app startup...");
+        Console.WriteLine("==============================================");
+      Console.WriteLine($"❌ Database initialization failed: {ex.Message}");
+Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        Console.WriteLine("==============================================");
+    Console.WriteLine("⚠️  Continuing app startup without seeding...");
     }
 }
 
