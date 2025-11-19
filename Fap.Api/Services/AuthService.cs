@@ -1,8 +1,11 @@
 ﻿using AutoMapper;
+using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Auth;
 using Fap.Domain.Entities;
 using Fap.Domain.Repositories;
+using Fap.Domain.Settings;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -17,13 +20,26 @@ namespace Fap.Api.Services
         private readonly IMapper _mapper;
         private readonly PasswordHasher<User> _hasher = new();
         private readonly ILogger<AuthService> _logger;
+        private readonly IWalletService _walletService;
+        private readonly IBlockchainService _blockchainService;
+        private readonly BlockchainSettings _blockchainSettings;
 
-        public AuthService(IUnitOfWork uow, IConfiguration config, IMapper mapper, ILogger<AuthService> logger)
+        public AuthService(
+            IUnitOfWork uow, 
+            IConfiguration config, 
+            IMapper mapper, 
+            ILogger<AuthService> logger,
+            IWalletService walletService,
+            IBlockchainService blockchainService,
+            IOptions<BlockchainSettings> blockchainSettings)
         {
             _uow = uow;
             _config = config;
             _mapper = mapper;
             _logger = logger;
+            _walletService = walletService;
+            _blockchainService = blockchainService;
+            _blockchainSettings = blockchainSettings.Value;
         }
 
         // LOGIN
@@ -185,22 +201,48 @@ namespace Fap.Api.Services
                     }
                 }
 
-                // 4️⃣ Tạo User bằng AutoMapper
+                // 4️⃣ GENERATE OR USE WALLET ADDRESS
+                var walletResult = await _walletService.GetOrCreateWalletAsync(
+                    request.WalletAddress,
+                    userId: null  // Will associate after user creation
+                );
+
+                if (!walletResult.Success || walletResult.Wallet == null)
+                {
+                    response.Errors.Add("Failed to generate wallet");
+                    response.Message = "Registration failed";
+                    return response;
+                }
+
+                var walletAddress = walletResult.Wallet.Address;
+                _logger.LogInformation("✅ Wallet ready: {Address} (IsNew: {IsNew})", 
+                    walletAddress, walletResult.Wallet.IsNewWallet);
+
+                // 5️⃣ CREATE USER IN SQL DATABASE
                 var user = _mapper.Map<User>(request);
                 user.Id = Guid.NewGuid();
                 user.PasswordHash = _hasher.HashPassword(user, request.Password);
                 user.RoleId = role.Id;
+                user.WalletAddress = walletAddress;  // Save wallet address
+                user.CreatedAt = DateTime.UtcNow;
 
                 await _uow.Users.AddAsync(user);
                 await _uow.SaveChangesAsync();
 
-                // 5️⃣ Tạo Student hoặc Teacher bằng AutoMapper
+                _logger.LogInformation("✅ User created with ID: {Id}", user.Id);
+
+                // Associate wallet with user in Wallets table
+                if (await _walletService.WalletExistsAsync(walletAddress))
+                {
+                    await _walletService.AssociateWalletWithUserAsync(walletAddress, user.Id);
+                }
+
+                // 6️⃣ CREATE STUDENT/TEACHER
                 if (request.RoleName.Equals("Student", StringComparison.OrdinalIgnoreCase))
                 {
                     var student = _mapper.Map<Student>(request);
                     student.Id = Guid.NewGuid();
                     student.UserId = user.Id;
-
                     await _uow.Students.AddAsync(student);
                 }
                 else if (request.RoleName.Equals("Teacher", StringComparison.OrdinalIgnoreCase))
@@ -208,29 +250,88 @@ namespace Fap.Api.Services
                     var teacher = _mapper.Map<Teacher>(request);
                     teacher.Id = Guid.NewGuid();
                     teacher.UserId = user.Id;
-
                     await _uow.Teachers.AddAsync(teacher);
                 }
 
                 await _uow.SaveChangesAsync();
 
+                // 7️⃣ REGISTER ON BLOCKCHAIN (OPTIONAL)
+                BlockchainInfo? blockchainInfo = null;
+                // ✅ FIX: Use BlockchainSettings:EnableRegistration instead of Blockchain:EnableRegistration
+                var enableBlockchain = _config.GetValue<bool>("BlockchainSettings:EnableRegistration", false);
+                
+                // 🔍 DIAGNOSTIC LOGS
+                _logger.LogWarning("🔍 ===== BLOCKCHAIN REGISTRATION DIAGNOSTICS =====");
+                _logger.LogWarning("🔍 EnableRegistration from config: {EnableBlockchain}", enableBlockchain);
+                _logger.LogWarning("🔍 Config path checked: BlockchainSettings:EnableRegistration");
+                _logger.LogWarning("🔍 BlockchainSettings.EnableRegistration (from Options): {SettingsValue}", _blockchainSettings.EnableRegistration);
+                _logger.LogWarning("🔍 Contract Address: {ContractAddress}", _blockchainSettings.Contracts?.UniversityManagement ?? "NULL");
+                _logger.LogWarning("🔍 User WalletAddress: {WalletAddress}", walletAddress);
+                _logger.LogWarning("🔍 User Role: {Role}", user.Role?.Name ?? "NULL");
+                _logger.LogWarning("🔍 ================================================");
+
+                if (enableBlockchain)
+                {
+                    try
+                    {
+                        _logger.LogInformation("🔗 Registering user on blockchain...");
+                        blockchainInfo = await RegisterOnBlockchainAsync(user, walletAddress);
+
+                        if (blockchainInfo != null)
+                        {
+                            // Update user with blockchain info
+                            user.BlockchainTxHash = blockchainInfo.TransactionHash;
+                            user.BlockNumber = blockchainInfo.BlockNumber;
+                            user.BlockchainRegisteredAt = blockchainInfo.RegisteredAt;
+                            user.UpdatedAt = DateTime.UtcNow;
+                            
+                            _uow.Users.Update(user);
+                            await _uow.SaveChangesAsync();
+
+                            _logger.LogInformation("✅ Blockchain registration successful");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "❌ Blockchain registration failed");
+                        
+                        // Mark blockchain as failed but continue
+                        user.BlockchainTxHash = $"FAILED: {ex.Message}";
+                        user.UpdatedAt = DateTime.UtcNow;
+                        _uow.Users.Update(user);
+                        await _uow.SaveChangesAsync();
+
+                        response.Errors.Add($"Blockchain registration failed: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("⚠️ Blockchain registration is DISABLED in configuration");
+                    _logger.LogWarning("⚠️ To enable: Set BlockchainSettings:EnableRegistration = true in appsettings.json");
+                }
+
+                // 8️⃣ RETURN SUCCESS
                 response.Success = true;
                 response.Message = "User registered successfully";
                 response.UserId = user.Id;
+                response.Blockchain = blockchainInfo;
 
                 return response;
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "❌ Registration failed for: {Email}", request.Email);
                 response.Errors.Add($"Internal error: {ex.Message}");
                 response.Message = "Registration failed";
                 return response;
             }
         }
 
-        // ĐĂNG KÝ NHIỀU TÀI KHOẢN
+        // ĐĂNG KÝ NHIỀU TÀI KHOẢN - WITH BLOCKCHAIN SUPPORT
         public async Task<BulkRegisterResponse> BulkRegisterAsync(BulkRegisterRequest request)
         {
+            _logger.LogInformation("📋 Bulk registering {Count} users", request.Users.Count);
+
             var response = new BulkRegisterResponse
             {
                 TotalRequested = request.Users.Count
@@ -245,7 +346,13 @@ namespace Fap.Api.Services
                     response.SuccessCount++;
                 else
                     response.FailureCount++;
+
+                // Small delay to avoid overwhelming blockchain
+                await Task.Delay(500);
             }
+
+            _logger.LogInformation("✅ Bulk registration complete: {Success}/{Total} successful", 
+                response.SuccessCount, response.TotalRequested);
 
             return response;
         }
@@ -351,6 +458,74 @@ namespace Fap.Api.Services
             await _uow.RefreshTokens.AddAsync(token);
             await _uow.SaveChangesAsync();
             return token;
+        }
+
+        // ========== Blockchain Integration Helpers ==========
+
+        /// <summary>
+        /// Register user on blockchain smart contract
+        /// </summary>
+        private async Task<BlockchainInfo?> RegisterOnBlockchainAsync(User user, string walletAddress)
+        {
+            // Smart contract ABI for registerUser function
+            const string CONTRACT_ABI = @"[{""inputs"":[{""internalType"":""address"",""name"":""_userAddress"",""type"":""address""},{""internalType"":""string"",""name"":""_userId"",""type"":""string""},{""internalType"":""string"",""name"":""_fullName"",""type"":""string""},{""internalType"":""string"",""name"":""_email"",""type"":""string""},{""internalType"":""uint8"",""name"":""_role"",""type"":""uint8""}],""name"":""registerUser"",""outputs"":[],""stateMutability"":""nonpayable"",""type"":""function""}]";
+
+            var contractAddress = _blockchainSettings.Contracts.UniversityManagement;
+
+            if (string.IsNullOrEmpty(contractAddress) || contractAddress == "0x0000000000000000000000000000000000000000")
+            {
+                _logger.LogWarning("⚠️ Contract address not configured");
+                throw new InvalidOperationException("Blockchain contract not configured");
+            }
+
+            var isDeployed = await _blockchainService.IsContractDeployedAsync(contractAddress);
+            if (!isDeployed)
+            {
+                _logger.LogWarning("⚠️ Contract not deployed at: {Address}", contractAddress);
+                throw new InvalidOperationException($"Contract not deployed at {contractAddress}");
+            }
+
+            var blockchainRole = MapRoleToBlockchain(user.Role.Name);
+
+            var txHash = await _blockchainService.SendTransactionAsync(
+                contractAddress,
+                CONTRACT_ABI,
+                "registerUser",
+                walletAddress,
+                user.Id.ToString(),
+                user.FullName,
+                user.Email,
+                blockchainRole
+            );
+
+            _logger.LogInformation("✅ Blockchain TX: {TxHash}", txHash);
+
+            var receipt = await _blockchainService.GetTransactionReceiptAsync(txHash);
+            if (receipt == null)
+                throw new Exception("Failed to get transaction receipt");
+
+            return new BlockchainInfo
+            {
+                WalletAddress = walletAddress,
+                TransactionHash = txHash,
+                BlockNumber = (long)receipt.BlockNumber.Value,
+                RegisteredAt = DateTime.UtcNow
+            };
+        }
+
+        /// <summary>
+        /// Map role name to blockchain enum (0=Admin, 1=Teacher, 2=Student)
+        /// </summary>
+        private int MapRoleToBlockchain(string roleName)
+        {
+            return roleName.ToLower() switch
+            {
+                "admin" => 0,
+                "teacher" => 1,
+                "lecturer" => 1,
+                "student" => 2,
+                _ => throw new ArgumentException($"Invalid role: {roleName}")
+            };
         }
     }
 }

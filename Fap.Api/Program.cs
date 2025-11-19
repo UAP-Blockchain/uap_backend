@@ -84,6 +84,7 @@ builder.Services.AddScoped<IEnrollRepository, EnrollRepository>();
 builder.Services.AddScoped<IGradeRepository, GradeRepository>();
 builder.Services.AddScoped<IGradeComponentRepository, GradeComponentRepository>();
 builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
+builder.Services.AddScoped<IWalletRepository, WalletRepository>();  // ✅ NEW - Wallet Repository
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // ==================================================
@@ -103,7 +104,9 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<ITimeSlotService, TimeSlotService>();
-builder.Services.AddScoped<IBlockchainService, BlockchainService>();
+builder.Services.AddScoped<IBlockchainService, BlockchainService>(); // ✅ Blockchain Service
+builder.Services.AddScoped<IEncryptionService, EncryptionService>();  // ✅ NEW - Encryption Service
+builder.Services.AddScoped<IWalletService, WalletService>();  // ✅ NEW - Wallet Service
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<ISemesterService, SemesterService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();

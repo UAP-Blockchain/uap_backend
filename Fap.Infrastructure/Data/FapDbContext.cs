@@ -31,7 +31,8 @@ namespace Fap.Infrastructure.Data
         public DbSet<Student> Students { get; set; }
         public DbSet<Teacher> Teachers { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
-        public DbSet<Otp> Otps { get; set; }
+        public DbSet<Otp> Otps { get; set; }  // ✅ NEW
+        public DbSet<Wallet> Wallets { get; set; }  // ✅ NEW - Blockchain Wallets
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -262,6 +263,23 @@ namespace Fap.Infrastructure.Data
             modelBuilder.Entity<Otp>()
                 .HasIndex(o => o.ExpiresAt)
                 .HasDatabaseName("IX_Otp_ExpiresAt");
+
+            // ✅ WALLET Configuration
+            modelBuilder.Entity<Wallet>()
+                .HasIndex(w => w.Address)
+                .IsUnique()
+                .HasDatabaseName("IX_Wallet_Address");
+
+            modelBuilder.Entity<Wallet>()
+                .HasIndex(w => w.UserId)
+                .HasDatabaseName("IX_Wallet_UserId");
+
+            // Wallet <-> User (Optional relationship - wallet can exist without user)
+            modelBuilder.Entity<Wallet>()
+                .HasOne(w => w.User)
+                .WithMany()
+                .HasForeignKey(w => w.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

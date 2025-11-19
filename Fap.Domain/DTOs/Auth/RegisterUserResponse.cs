@@ -8,5 +8,6 @@ namespace Fap.Domain.DTOs.Auth
         public string Email { get; set; }
         public string RoleName { get; set; }
         public List<string> Errors { get; set; } = new List<string>();
+        public BlockchainInfo? Blockchain { get; set; }
     }
 }
