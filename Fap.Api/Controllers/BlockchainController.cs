@@ -13,16 +13,90 @@ namespace Fap.Api.Controllers
     {
         private readonly IBlockchainService _blockchain;
         private readonly BlockchainSettings _settings;
+        private readonly IConfiguration _config;
         private readonly ILogger<BlockchainController> _logger;
 
         // ABI for CredentialManagement contract
         private const string CREDENTIAL_ABI = @"[{""inputs"":[{""name"":""credentialId"",""type"":""string""},{""name"":""studentCode"",""type"":""string""},{""name"":""certificateHash"",""type"":""string""}],""name"":""storeCredential"",""outputs"":[],""stateMutability"":""nonpayable"",""type"":""function""},{""inputs"":[{""name"":""credentialId"",""type"":""string""}],""name"":""getCredential"",""outputs"":[{""name"":""studentCode"",""type"":""string""},{""name"":""certificateHash"",""type"":""string""},{""name"":""issuedAt"",""type"":""uint256""},{""name"":""issuer"",""type"":""address""},{""name"":""isRevoked"",""type"":""bool""}],""stateMutability"":""view"",""type"":""function""}]";
 
-        public BlockchainController(IBlockchainService blockchain, IOptions<BlockchainSettings> settings, ILogger<BlockchainController> logger)
+        public BlockchainController(IBlockchainService blockchain, IOptions<BlockchainSettings> settings, IConfiguration config, ILogger<BlockchainController> logger)
         {
             _blockchain = blockchain;
             _settings = settings.Value;
+            _config = config;
             _logger = logger;
+        }
+
+        /// <summary>
+        /// ?? DIAGNOSTIC ENDPOINT - Check blockchain configuration values
+        /// </summary>
+        [HttpGet("config/check")]
+        [AllowAnonymous]
+        public IActionResult CheckConfig()
+        {
+            try
+            {
+                // ? FIX: Use correct config path
+                var enableRegistrationFromConfig = _config.GetValue<bool>("BlockchainSettings:EnableRegistration", false);
+                var enableRegistrationFromSettings = _settings.EnableRegistration;
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Configuration values retrieved successfully",
+                    configuration = new
+                    {
+                        // From IConfiguration (raw config)
+                        fromIConfiguration = new
+                        {
+                            enableRegistration = enableRegistrationFromConfig,
+                            configPath = "BlockchainSettings:EnableRegistration"
+                        },
+                        // From BlockchainSettings (Options pattern)
+                        fromBlockchainSettings = new
+                        {
+                            enableRegistration = enableRegistrationFromSettings,
+                            networkUrl = _settings.NetworkUrl,
+                            chainId = _settings.ChainId,
+                            contracts = new
+                            {
+                                universityManagement = _settings.Contracts?.UniversityManagement ?? "NULL",
+                                credentialManagement = _settings.Contracts?.CredentialManagement ?? "NULL"
+                            },
+                            gasLimit = _settings.GasLimit,
+                            gasPrice = _settings.GasPrice
+                        },
+                        // Environment
+                        environment = new
+                        {
+                            aspnetcoreEnvironment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "NULL",
+                            // Check if env variable overrides config
+                            blockchainEnableRegistrationEnvVar = Environment.GetEnvironmentVariable("BlockchainSettings__EnableRegistration") ?? "NOT SET"
+                        }
+                    },
+                    verdict = new
+                    {
+                        isEnabled = enableRegistrationFromConfig || enableRegistrationFromSettings,
+                        reason = enableRegistrationFromConfig
+                            ? "Enabled via IConfiguration"
+                            : (enableRegistrationFromSettings ? "Enabled via BlockchainSettings" : "DISABLED in both sources"),
+                        recommendation = (!enableRegistrationFromConfig && !enableRegistrationFromSettings)
+                            ? "?? Set 'BlockchainSettings.EnableRegistration: true' in appsettings.json or appsettings.Development.json"
+                            : "? Configuration is correct"
+                    },
+                    timestamp = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "? Failed to check configuration");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Failed to retrieve configuration",
+                    error = ex.Message
+                });
+            }
         }
 
         [HttpGet("health")]

@@ -32,27 +32,143 @@ namespace Fap.Api.Services
         {
             try
             {
-                _logger.LogInformation("Sending transaction: {Function} to {Contract}", functionName, contractAddress);
+                _logger.LogInformation("?? Sending transaction: {Function} to {Contract}", functionName, contractAddress);
+                
                 var contract = _web3.Eth.GetContract(abi, contractAddress);
                 var function = contract.GetFunction(functionName);
+
+                // 1?? Estimate Gas
                 var estimatedGas = await function.EstimateGasAsync(_account.Address, null, null, parameters);
-                _logger.LogDebug("Estimated gas: {Gas}", estimatedGas.Value);
-                var gas = new HexBigInteger(estimatedGas.Value * 2);
-                var gasPrice = new HexBigInteger(_settings.GasPrice);
-                var txHash = await function.SendTransactionAsync(_account.Address, gas, gasPrice, new HexBigInteger(0), parameters);
-                _logger.LogInformation("Transaction sent: {TxHash}", txHash);
+                _logger.LogDebug("? Estimated gas: {Gas}", estimatedGas.Value);
+
+                // 2?? Use configured gas limit or estimated gas with buffer
+                var gasLimit = _settings.GasLimit > 0 
+                    ? new HexBigInteger(_settings.GasLimit) 
+                    : new HexBigInteger(estimatedGas.Value * 120 / 100); // 20% buffer
+
+                _logger.LogDebug("? Gas limit: {GasLimit}", gasLimit.Value);
+
+                // 3?? Determine transaction type (Legacy vs EIP-1559)
+                string txHash;
+                bool useEIP1559 = _settings.MaxFeePerGas > 0 || _settings.MaxPriorityFeePerGas > 0;
+
+                if (useEIP1559)
+                {
+                    // EIP-1559 Transaction (Type 2)
+                    _logger.LogDebug("?? Using EIP-1559 transaction type");
+                    
+                    var maxFeePerGas = _settings.MaxFeePerGas > 0 
+                        ? new HexBigInteger(_settings.MaxFeePerGas)
+                        : await EstimateMaxFeePerGasAsync();
+
+                    var maxPriorityFeePerGas = _settings.MaxPriorityFeePerGas > 0
+                        ? new HexBigInteger(_settings.MaxPriorityFeePerGas)
+                        : await EstimateMaxPriorityFeePerGasAsync();
+
+                    _logger.LogDebug("? MaxFeePerGas: {MaxFeePerGas}, MaxPriorityFeePerGas: {MaxPriorityFeePerGas}", 
+                        maxFeePerGas.Value, maxPriorityFeePerGas.Value);
+
+                    // Create EIP-1559 transaction input
+                    var transactionInput = function.CreateTransactionInput(
+                        _account.Address,
+                        gasLimit,
+                        new HexBigInteger(0), // value
+                        parameters
+                    );
+
+                    transactionInput.MaxFeePerGas = maxFeePerGas;
+                    transactionInput.MaxPriorityFeePerGas = maxPriorityFeePerGas;
+                    transactionInput.Type = new HexBigInteger(2); // EIP-1559 type
+
+                    txHash = await _web3.Eth.TransactionManager.SendTransactionAsync(transactionInput);
+                }
+                else
+                {
+                    // Legacy Transaction (Type 0)
+                    _logger.LogDebug("?? Using Legacy transaction type");
+                    
+                    var gasPrice = _settings.GasPrice > 0 
+                        ? new HexBigInteger(_settings.GasPrice)
+                        : await _web3.Eth.GasPrice.SendRequestAsync();
+
+                    _logger.LogDebug("? Gas price: {GasPrice}", gasPrice.Value);
+
+                    txHash = await function.SendTransactionAsync(
+                        _account.Address, 
+                        gasLimit, 
+                        gasPrice, 
+                        new HexBigInteger(0), // value
+                        parameters
+                    );
+                }
+
+                _logger.LogInformation("? Transaction sent: {TxHash}", txHash);
+
+                // 4?? Wait for confirmation
                 var receipt = await WaitForTransactionReceiptAsync(txHash, _settings.TransactionTimeout);
+                
                 if (receipt.Status?.Value != 1)
                 {
+                    _logger.LogError("? Transaction failed: {TxHash}, Status: {Status}", txHash, receipt.Status?.Value);
                     throw new Exception($"Transaction failed: {txHash}");
                 }
-                _logger.LogInformation("Transaction confirmed in block {Block}. Gas used: {GasUsed}", receipt.BlockNumber.Value, receipt.GasUsed.Value);
+
+                _logger.LogInformation("? Transaction confirmed in block {Block}. Gas used: {GasUsed}/{GasLimit}", 
+                    receipt.BlockNumber.Value, receipt.GasUsed.Value, gasLimit.Value);
+
                 return txHash;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Transaction failed");
+                _logger.LogError(ex, "? Transaction failed");
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Estimate MaxFeePerGas for EIP-1559 transactions
+        /// </summary>
+        private async Task<HexBigInteger> EstimateMaxFeePerGasAsync()
+        {
+            try
+            {
+                // Get base fee from latest block
+                var latestBlock = await _web3.Eth.Blocks.GetBlockWithTransactionsByNumber.SendRequestAsync(BlockParameter.CreateLatest());
+                var baseFee = latestBlock.BaseFeePerGas?.Value ?? 0;
+
+                // MaxFeePerGas = (BaseFee * 2) + MaxPriorityFeePerGas
+                var maxPriorityFee = (await EstimateMaxPriorityFeePerGasAsync()).Value;
+                var maxFeePerGas = (baseFee * 2) + maxPriorityFee;
+
+                _logger.LogDebug("?? Base fee: {BaseFee}, Calculated MaxFeePerGas: {MaxFeePerGas}", baseFee, maxFeePerGas);
+                return new HexBigInteger(maxFeePerGas);
+            }
+            catch
+            {
+                // Fallback to gas price if base fee not available
+                var gasPrice = await _web3.Eth.GasPrice.SendRequestAsync();
+                _logger.LogWarning("?? Could not get base fee, using gas price: {GasPrice}", gasPrice.Value);
+                return gasPrice;
+            }
+        }
+
+        /// <summary>
+        /// Estimate MaxPriorityFeePerGas (miner tip) for EIP-1559 transactions
+        /// </summary>
+        private async Task<HexBigInteger> EstimateMaxPriorityFeePerGasAsync()
+        {
+            try
+            {
+                // Try to get priority fee from node
+                var priorityFee = await _web3.Eth.GasPrice.SendRequestAsync(); // Fallback
+                _logger.LogDebug("?? Estimated MaxPriorityFeePerGas: {PriorityFee}", priorityFee.Value);
+                return new HexBigInteger(priorityFee.Value / 10); // 10% of gas price as tip
+            }
+            catch
+            {
+                // Default: 1 Gwei
+                _logger.LogWarning("?? Could not estimate priority fee, using default: 1 Gwei");
+                return new HexBigInteger(1000000000); // 1 Gwei
             }
         }
 

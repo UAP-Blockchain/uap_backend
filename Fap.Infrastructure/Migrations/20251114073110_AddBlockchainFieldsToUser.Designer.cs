@@ -4,6 +4,7 @@ using Fap.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,13 +12,15 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Fap.Infrastructure.Migrations
 {
     [DbContext(typeof(FapDbContext))]
-    partial class FapDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251114073110_AddBlockchainFieldsToUser")]
+    partial class AddBlockchainFieldsToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.22")
+                .HasAnnotation("ProductVersion", "8.0.21")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -136,27 +139,15 @@ namespace Fap.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("MaxEnrollment")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("SubjectOfferingId")
+                    b.Property<Guid>("SubjectId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("TeacherUserId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("SubjectOfferingId");
+                    b.HasIndex("SubjectId");
 
                     b.HasIndex("TeacherUserId");
 
@@ -435,14 +426,8 @@ namespace Fap.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("IsClosed")
                         .HasColumnType("bit");
@@ -453,9 +438,6 @@ namespace Fap.Infrastructure.Migrations
                         .HasColumnType("nvarchar(80)");
 
                     b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
@@ -487,6 +469,9 @@ namespace Fap.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<Guid?>("SubjectId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("SubstituteTeacherId")
                         .HasColumnType("uniqueidentifier");
 
@@ -503,6 +488,8 @@ namespace Fap.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClassId");
+
+                    b.HasIndex("SubjectId");
 
                     b.HasIndex("SubstituteTeacherId");
 
@@ -611,30 +598,11 @@ namespace Fap.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Category")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<int>("Credits")
                         .HasColumnType("int");
 
-                    b.Property<string>("Department")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Prerequisites")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                    b.Property<Guid>("SemesterId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("SubjectCode")
                         .IsRequired()
@@ -646,10 +614,9 @@ namespace Fap.Infrastructure.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id");
+
+                    b.HasIndex("SemesterId");
 
                     b.ToTable("Subjects");
                 });
@@ -688,54 +655,6 @@ namespace Fap.Infrastructure.Migrations
                     b.HasIndex("SubjectId");
 
                     b.ToTable("SubjectCriteria");
-                });
-
-            modelBuilder.Entity("Fap.Domain.Entities.SubjectOffering", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("MaxClasses")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<DateTime?>("RegistrationEndDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("RegistrationStartDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("SemesterCapacity")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("SemesterId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("SubjectId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SemesterId");
-
-                    b.HasIndex("SubjectId", "SemesterId")
-                        .IsUnique()
-                        .HasDatabaseName("UK_SubjectOffering_Subject_Semester");
-
-                    b.ToTable("SubjectOfferings");
                 });
 
             modelBuilder.Entity("Fap.Domain.Entities.Teacher", b =>
@@ -846,50 +765,6 @@ namespace Fap.Infrastructure.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("Fap.Domain.Entities.Wallet", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Address")
-                        .IsRequired()
-                        .HasMaxLength(42)
-                        .HasColumnType("nvarchar(42)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("EncryptedPrivateKey")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("LastUsedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("PublicKey")
-                        .IsRequired()
-                        .HasMaxLength(132)
-                        .HasColumnType("nvarchar(132)");
-
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Address")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Wallet_Address");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("IX_Wallet_UserId");
-
-                    b.ToTable("Wallets");
-                });
-
             modelBuilder.Entity("Fap.Domain.Entities.ActionLog", b =>
                 {
                     b.HasOne("Fap.Domain.Entities.Credential", "Credential")
@@ -936,10 +811,10 @@ namespace Fap.Infrastructure.Migrations
 
             modelBuilder.Entity("Fap.Domain.Entities.Class", b =>
                 {
-                    b.HasOne("Fap.Domain.Entities.SubjectOffering", "SubjectOffering")
+                    b.HasOne("Fap.Domain.Entities.Subject", "Subject")
                         .WithMany("Classes")
-                        .HasForeignKey("SubjectOfferingId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("Fap.Domain.Entities.Teacher", "Teacher")
@@ -948,7 +823,7 @@ namespace Fap.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("SubjectOffering");
+                    b.Navigation("Subject");
 
                     b.Navigation("Teacher");
                 });
@@ -1067,6 +942,10 @@ namespace Fap.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Fap.Domain.Entities.Subject", null)
+                        .WithMany("Slots")
+                        .HasForeignKey("SubjectId");
+
                     b.HasOne("Fap.Domain.Entities.Teacher", "SubstituteTeacher")
                         .WithMany()
                         .HasForeignKey("SubstituteTeacherId")
@@ -1121,6 +1000,17 @@ namespace Fap.Infrastructure.Migrations
                     b.Navigation("Subject");
                 });
 
+            modelBuilder.Entity("Fap.Domain.Entities.Subject", b =>
+                {
+                    b.HasOne("Fap.Domain.Entities.Semester", "Semester")
+                        .WithMany("Subjects")
+                        .HasForeignKey("SemesterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Semester");
+                });
+
             modelBuilder.Entity("Fap.Domain.Entities.SubjectCriteria", b =>
                 {
                     b.HasOne("Fap.Domain.Entities.Subject", "Subject")
@@ -1128,25 +1018,6 @@ namespace Fap.Infrastructure.Migrations
                         .HasForeignKey("SubjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Subject");
-                });
-
-            modelBuilder.Entity("Fap.Domain.Entities.SubjectOffering", b =>
-                {
-                    b.HasOne("Fap.Domain.Entities.Semester", "Semester")
-                        .WithMany("SubjectOfferings")
-                        .HasForeignKey("SemesterId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Fap.Domain.Entities.Subject", "Subject")
-                        .WithMany("Offerings")
-                        .HasForeignKey("SubjectId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Semester");
 
                     b.Navigation("Subject");
                 });
@@ -1171,16 +1042,6 @@ namespace Fap.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Role");
-                });
-
-            modelBuilder.Entity("Fap.Domain.Entities.Wallet", b =>
-                {
-                    b.HasOne("Fap.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Fap.Domain.Entities.CertificateTemplate", b =>
@@ -1211,7 +1072,7 @@ namespace Fap.Infrastructure.Migrations
 
             modelBuilder.Entity("Fap.Domain.Entities.Semester", b =>
                 {
-                    b.Navigation("SubjectOfferings");
+                    b.Navigation("Subjects");
                 });
 
             modelBuilder.Entity("Fap.Domain.Entities.Slot", b =>
@@ -1236,18 +1097,15 @@ namespace Fap.Infrastructure.Migrations
 
             modelBuilder.Entity("Fap.Domain.Entities.Subject", b =>
                 {
-                    b.Navigation("Grades");
+                    b.Navigation("Classes");
 
-                    b.Navigation("Offerings");
+                    b.Navigation("Grades");
 
                     b.Navigation("Roadmaps");
 
-                    b.Navigation("SubjectCriterias");
-                });
+                    b.Navigation("Slots");
 
-            modelBuilder.Entity("Fap.Domain.Entities.SubjectOffering", b =>
-                {
-                    b.Navigation("Classes");
+                    b.Navigation("SubjectCriterias");
                 });
 
             modelBuilder.Entity("Fap.Domain.Entities.Teacher", b =>

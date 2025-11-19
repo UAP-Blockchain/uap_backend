@@ -26,7 +26,7 @@ namespace Fap.Infrastructure.Repositories
         public IAttendanceRepository Attendances { get; }
         public ISlotRepository Slots { get; }
         public IStudentRoadmapRepository StudentRoadmaps { get; }
-
+        public IWalletRepository Wallets { get; }
         public UnitOfWork(FapDbContext context)
         {
             _context = context;
@@ -49,6 +49,7 @@ namespace Fap.Infrastructure.Repositories
             Attendances = new AttendanceRepository(context);
             Slots = new SlotRepository(context);
             StudentRoadmaps = new StudentRoadmapRepository(context);
+            Wallets = new WalletRepository(context);
         }
 
         public async Task<int> SaveChangesAsync()

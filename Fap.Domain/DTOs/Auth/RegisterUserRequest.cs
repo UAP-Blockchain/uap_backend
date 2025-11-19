@@ -2,9 +2,7 @@
 
 namespace Fap.Domain.DTOs.Auth
 {
-    /// <summary>
-    /// Request để đăng ký 1 tài khoản
-    /// </summary>
+    
     public class RegisterUserRequest
     {
         [Required(ErrorMessage = "Full name is required")]
@@ -41,5 +39,8 @@ namespace Fap.Domain.DTOs.Auth
         [MaxLength(20)]
         [Phone(ErrorMessage = "Invalid phone number")]
         public string? PhoneNumber { get; set; }  // ✅ Nullable
+        [MaxLength(42)]
+        [RegularExpression(@"^0x[a-fA-F0-9]{40}$", ErrorMessage = "Invalid Ethereum address format")]
+        public string? WalletAddress { get; set; }
     }
 }

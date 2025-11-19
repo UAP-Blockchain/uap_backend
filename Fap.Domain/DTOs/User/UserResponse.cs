@@ -12,5 +12,35 @@ namespace Fap.Domain.DTOs.User
         // Optional: Student/Teacher info
         public string? StudentCode { get; set; }
         public string? TeacherCode { get; set; }
+        
+        // ======================================================================
+        // BLOCKCHAIN INTEGRATION
+        // ======================================================================
+        
+        /// <summary>
+        /// User's blockchain wallet address
+        /// </summary>
+        public string? WalletAddress { get; set; }
+        
+        /// <summary>
+        /// Blockchain registration transaction hash
+        /// </summary>
+        public string? BlockchainTxHash { get; set; }
+        
+        /// <summary>
+        /// Block number where user was registered
+        /// </summary>
+        public long? BlockNumber { get; set; }
+        
+        /// <summary>
+        /// Blockchain registration timestamp
+        /// </summary>
+        public DateTime? BlockchainRegisteredAt { get; set; }
+        
+        /// <summary>
+        /// Indicates if user is registered on blockchain
+        /// </summary>
+        public bool IsOnBlockchain => !string.IsNullOrEmpty(WalletAddress) 
+                                    && !string.IsNullOrEmpty(BlockchainTxHash);
     }
 }

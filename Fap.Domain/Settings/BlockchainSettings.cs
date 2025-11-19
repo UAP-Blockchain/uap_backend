@@ -33,6 +33,8 @@ namespace Fap.Domain.Settings
 
         /// <summary>
         /// Gas price in Wei (default: 20 Gwei = 20,000,000,000 Wei)
+        /// ?? LEGACY: S? d?ng cho pre-EIP-1559 transactions
+        /// Set = 0 ?? auto-estimate
         /// </summary>
         public long GasPrice { get; set; } = 20000000000;
 
@@ -40,6 +42,24 @@ namespace Fap.Domain.Settings
         /// Timeout cho transaction confirmation (seconds)
         /// </summary>
         public int TransactionTimeout { get; set; } = 60;
+
+        /// <summary>
+        /// ? Enable/disable blockchain registration for new users
+        /// Set to true to register users on blockchain, false to skip
+        /// </summary>
+        public bool EnableRegistration { get; set; } = false;
+
+        /// <summary>
+        /// EIP-1559: Max fee per gas in Wei
+        /// Set = 0 ?? auto-estimate ho?c s? d?ng legacy GasPrice
+        /// </summary>
+        public long MaxFeePerGas { get; set; } = 0;
+
+        /// <summary>
+        /// EIP-1559: Max priority fee per gas (miner tip) in Wei
+        /// Set = 0 ?? auto-estimate ho?c s? d?ng legacy GasPrice
+        /// </summary>
+        public long MaxPriorityFeePerGas { get; set; } = 0;
     }
 
     /// <summary>

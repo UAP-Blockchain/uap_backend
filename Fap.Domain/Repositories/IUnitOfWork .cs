@@ -23,6 +23,7 @@ namespace Fap.Domain.Repositories
         IGradeComponentRepository GradeComponents { get; }
         IAttendanceRepository Attendances { get; }
         ISlotRepository Slots { get; }
+        IWalletRepository Wallets { get; }
         IStudentRoadmapRepository StudentRoadmaps { get; }
         
         Task<int> SaveChangesAsync();
