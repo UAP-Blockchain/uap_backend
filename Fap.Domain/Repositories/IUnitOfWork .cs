@@ -13,8 +13,9 @@ namespace Fap.Domain.Repositories
         IPermissionRepository Permissions { get; }
         IOtpRepository Otps { get; }
         IClassRepository Classes { get; }
+        IClassMemberRepository ClassMembers { get; } 
         ISubjectRepository Subjects { get; }
-        ISubjectOfferingRepository SubjectOfferings { get; } // ✅ NEW
+        ISubjectOfferingRepository SubjectOfferings { get; } 
         ITimeSlotRepository TimeSlots { get; }
         ISemesterRepository Semesters { get; }
         IEnrollRepository Enrolls { get; }

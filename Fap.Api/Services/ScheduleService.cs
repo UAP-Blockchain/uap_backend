@@ -231,14 +231,13 @@ namespace Fap.Api.Services
                 // Get all classes the student is enrolled in
                 var classMembers = await _uow.Classes.GetAllWithDetailsAsync();
                 var studentClasses = classMembers
-             .Where(c => c.Members != null && c.Members.Any(m => m.StudentId == studentId))
-         .ToList();
+   .Where(c => c.Members != null && c.Members.Any(m => m.StudentId == studentId))
+   .ToList();
 
                 var studentClassIds = studentClasses.Select(c => c.Id).ToList();
 
-                // Get all slots for these classes
-                var allSlots = await _uow.Slots.GetAllAsync();
-                var slots = allSlots.Where(s => studentClassIds.Contains(s.ClassId)).ToList();
+                // Get all slots for these classes with navigation properties loaded
+                var slots = await _uow.Slots.GetByClassIdsAsync(studentClassIds);
 
                 // Apply filters
                 var query = slots.AsQueryable();
@@ -260,7 +259,7 @@ namespace Fap.Api.Services
 
                 if (request.SemesterId.HasValue)
                 {
-                    query = query.Where(s => s.Class.SubjectOffering.SemesterId == request.SemesterId.Value); // ? FIXED
+                    query = query.Where(s => s.Class.SubjectOffering.SemesterId == request.SemesterId.Value);
                 }
 
                 if (request.ClassId.HasValue)
@@ -359,9 +358,9 @@ namespace Fap.Api.Services
                 // Get all classes student is enrolled in for this semester
                 var allClasses = await _uow.Classes.GetAllWithDetailsAsync();
                 var studentClasses = allClasses
- .Where(c => c.SubjectOffering.SemesterId == semesterId && // ? FIXED
-    c.Members != null && c.Members.Any(m => m.StudentId == studentId))
-   .ToList();
+                        .Where(c => c.SubjectOffering.SemesterId == semesterId &&
+                        c.Members != null && c.Members.Any(m => m.StudentId == studentId))
+                        .ToList();
 
                 var classSummaries = new List<ClassScheduleSummary>();
 

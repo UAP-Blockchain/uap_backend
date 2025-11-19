@@ -6,6 +6,7 @@ namespace Fap.Domain.Repositories
     {
         Task<Slot?> GetByIdWithDetailsAsync(Guid id);
         Task<IEnumerable<Slot>> GetByClassIdAsync(Guid classId);
+        Task<IEnumerable<Slot>> GetByClassIdsAsync(List<Guid> classIds);
         Task<IEnumerable<Slot>> GetByTeacherIdAsync(Guid teacherId);
         Task<IEnumerable<Slot>> GetByDateRangeAsync(DateTime fromDate, DateTime toDate);
         Task<IEnumerable<Slot>> GetByStatusAsync(string status);

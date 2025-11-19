@@ -155,14 +155,59 @@ namespace Fap.Api.Services
                     return response;
                 }
 
+                // ✅ Check if student is already in class roster (ClassMember)
+                var isAlreadyInRoster = await _uow.ClassMembers.IsStudentInClassAsync(
+                    enrollment.ClassId, enrollment.StudentId);
+                
+                if (isAlreadyInRoster)
+                {
+                    response.Errors.Add("Student is already in the class roster");
+                    response.Message = "Enrollment approval failed";
+                    return response;
+                }
+
+                // ✅ Check class capacity
+                var classEntity = await _uow.Classes.GetByIdAsync(enrollment.ClassId);
+                if (classEntity == null)
+                {
+                    response.Errors.Add($"Class with ID '{enrollment.ClassId}' not found");
+                    response.Message = "Enrollment approval failed";
+                    return response;
+                }
+
+                var currentEnrollmentCount = await _uow.ClassMembers.GetClassMemberCountAsync(
+                    enrollment.ClassId);
+
+                if (currentEnrollmentCount >= classEntity.MaxEnrollment)
+                {
+                    response.Errors.Add($"Class is full. Maximum enrollment: {classEntity.MaxEnrollment}");
+                    response.Message = "Enrollment approval failed";
+                    return response;
+                }
+
+                // ✅ Approve enrollment
                 enrollment.IsApproved = true;
                 _uow.Enrolls.Update(enrollment);
+
+                // ✅✅ CREATE ClassMember - Add student to class roster
+                var classMember = new ClassMember
+                {
+                    Id = Guid.NewGuid(),
+                    ClassId = enrollment.ClassId,
+                    StudentId = enrollment.StudentId,
+                    JoinedAt = DateTime.UtcNow
+                };
+
+                await _uow.ClassMembers.AddAsync(classMember);
                 await _uow.SaveChangesAsync();
 
                 response.Success = true;
-                response.Message = "Enrollment approved successfully";
+                response.Message = "Enrollment approved successfully. Student added to class roster.";
 
-                _logger.LogInformation("Enrollment {EnrollmentId} approved", id);
+                _logger.LogInformation(
+                    "Enrollment {EnrollmentId} approved. Student {StudentId} added to class {ClassId} roster",
+                    id, enrollment.StudentId, enrollment.ClassId);
+                
                 return response;
             }
             catch (Exception ex)
