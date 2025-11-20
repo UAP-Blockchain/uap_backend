@@ -275,6 +275,11 @@ namespace Fap.Api.Services
                     query = query.Where(a => a.Slot.ClassId == filter.ClassId.Value);
                 }
 
+                if (filter.SubjectId.HasValue)
+                {
+                    query = query.Where(a => a.Slot.Class.SubjectOffering.SubjectId == filter.SubjectId.Value);
+                }
+
                 if (filter.FromDate.HasValue)
                 {
                     query = query.Where(a => a.Slot.Date >= filter.FromDate.Value);

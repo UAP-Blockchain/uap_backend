@@ -26,6 +26,12 @@ namespace Fap.Domain.Repositories
         IWalletRepository Wallets { get; }
         IStudentRoadmapRepository StudentRoadmaps { get; }
         
+        // ✅ NEW: Credential repositories
+        ICredentialRepository Credentials { get; }
+        ICredentialRequestRepository CredentialRequests { get; }
+        ICertificateTemplateRepository CertificateTemplates { get; }
+        ISubjectCriteriaRepository SubjectCriteria { get; }
+        
         Task<int> SaveChangesAsync();
         void ClearChangeTracker();
     }

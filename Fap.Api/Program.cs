@@ -116,6 +116,7 @@ builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<ISlotService, SlotService>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IStudentRoadmapService, StudentRoadmapService>();
+builder.Services.AddScoped<ICredentialService, CredentialService>(); // ✅ NEW - Credential/Certificate Service
 
 // Register AutoMapper - scan all Profile classes in the assembly
 builder.Services.AddAutoMapper(cfg => { }, typeof(Program).Assembly);
@@ -185,36 +186,36 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine("==============================================");
         Console.WriteLine("🔄 Database initialization started...");
         Console.WriteLine("==============================================");
-        
+
         // Check if --force-seed argument is provided
         bool forceSeed = args.Contains("--force-seed");
-        
+
         if (forceSeed)
         {
             Console.WriteLine("⚠️  --force-seed detected: Dropping database...");
             await db.Database.EnsureDeletedAsync();
-  Console.WriteLine("✅ Database dropped successfully");
+            Console.WriteLine("✅ Database dropped successfully");
         }
-  
+
         Console.WriteLine("🔄 Applying migrations...");
         await db.Database.MigrateAsync();
         Console.WriteLine("✅ Migrations applied successfully");
-        
-  Console.WriteLine("");
+
+        Console.WriteLine("");
         await DataSeeder.SeedAsync(db);
         Console.WriteLine("");
-        
-     Console.WriteLine("==============================================");
+
+        Console.WriteLine("==============================================");
         Console.WriteLine("✅ Database initialization completed!");
         Console.WriteLine("==============================================");
     }
     catch (Exception ex)
     {
         Console.WriteLine("==============================================");
-      Console.WriteLine($"❌ Database initialization failed: {ex.Message}");
-Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        Console.WriteLine($"❌ Database initialization failed: {ex.Message}");
+        Console.WriteLine($"Stack trace: {ex.StackTrace}");
         Console.WriteLine("==============================================");
-    Console.WriteLine("⚠️  Continuing app startup without seeding...");
+        Console.WriteLine("⚠️  Continuing app startup without seeding...");
     }
 }
 

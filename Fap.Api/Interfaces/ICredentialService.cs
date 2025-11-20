@@ -1,0 +1,56 @@
+using Fap.Domain.DTOs.Credential;
+using Fap.Domain.DTOs.Common;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace Fap.Api.Interfaces
+{
+    public interface ICredentialService
+    {
+        // ==================== CREDENTIALS ====================
+
+        Task<PagedResult<CredentialDto>> GetCredentialsAsync(GetCredentialsRequest request);
+        Task<CredentialDetailDto?> GetCredentialByIdAsync(Guid id);
+        Task<CredentialDetailDto> CreateCredentialAsync(CreateCredentialRequest request, Guid createdBy);
+        Task<CredentialDetailDto> ReviewCredentialAsync(Guid credentialId, ReviewCredentialRequest request, Guid reviewedBy);
+        Task RevokeCredentialAsync(Guid credentialId, RevokeCredentialRequest request, Guid revokedBy);
+
+        // Credential Operations
+        Task<(byte[] FileBytes, string FileName)> GenerateCredentialPdfAsync(Guid credentialId);
+        Task<string> GenerateQRCodeAsync(Guid credentialId, Guid? userId, int size = 300);
+        Task<CredentialShareDto> GetCredentialShareInfoAsync(Guid credentialId, Guid? userId);
+        Task<CredentialVerificationDto> VerifyCredentialAsync(VerifyCredentialRequest request);
+
+        // ==================== STUDENT OPERATIONS ====================
+
+        Task<List<CredentialDto>> GetStudentCredentialsAsync(Guid userId, string? certificateType = null);
+        Task<List<CredentialDto>> GetStudentCredentialsByStudentIdAsync(Guid studentId, string? certificateType = null);
+        Task<StudentCredentialSummaryDto> GetStudentCredentialSummaryAsync(Guid userId);
+        Task<Guid?> GetStudentIdByUserIdAsync(Guid userId);
+
+        // ==================== CREDENTIAL REQUESTS ====================
+
+        Task<PagedResult<CredentialRequestDto>> GetCredentialRequestsAsync(GetCredentialRequestsRequest request);
+        Task<CredentialRequestDto?> GetCredentialRequestByIdAsync(Guid id);
+        Task<CredentialRequestDto> RequestCredentialAsync(Guid userId, RequestCredentialRequest request);
+        Task<List<CredentialRequestDto>> GetStudentCredentialRequestsAsync(Guid userId, string? status = null);
+        Task<CredentialDetailDto?> ProcessCredentialRequestAsync(Guid requestId, ProcessCredentialRequestRequest request, Guid processedBy);
+
+        // ==================== AUTO-GENERATION (Background Jobs) ====================
+
+        Task<CredentialRequestDto?> AutoRequestSubjectCompletionCredentialAsync(Guid studentId, Guid subjectId);
+        Task<CredentialRequestDto?> AutoRequestSemesterCompletionCredentialAsync(Guid studentId, Guid semesterId);
+        Task<CredentialRequestDto?> AutoRequestRoadmapCompletionCredentialAsync(Guid studentId, Guid roadmapId);
+
+        // ==================== TEMPLATES ====================
+
+        Task<List<CertificateTemplateDto>> GetTemplatesAsync(string? templateType = null, bool includeInactive = false);
+        Task<List<CertificateTemplateDto>> GetSampleTemplatesAsync(string? templateType = null);
+        Task<CertificateTemplateDto?> GetTemplateByIdAsync(Guid id);
+        Task<CertificateTemplateDto> CreateTemplateAsync(CreateCertificateTemplateRequest request);
+        Task<CertificateTemplateDto> UpdateTemplateAsync(Guid id, UpdateCertificateTemplateRequest request);
+        Task DeleteTemplateAsync(Guid id);
+        Task<(byte[] FileBytes, string FileName)> PreviewTemplateAsync(Guid templateId);
+    }
+}
