@@ -43,7 +43,6 @@ namespace Fap.Infrastructure.Data.Seed
                     UserId = UserSeeder.Teacher1UserId,
                     TeacherCode = "T001",
                     Specialization = "Software Engineering",
-                    PhoneNumber = "0901234567",
                     HireDate = new DateTime(2020, 1, 15)
                 },
                 new Teacher
@@ -52,7 +51,6 @@ namespace Fap.Infrastructure.Data.Seed
                     UserId = UserSeeder.Teacher2UserId,
                     TeacherCode = "T002",
                     Specialization = "Database Systems",
-                    PhoneNumber = "0912345678",
                     HireDate = new DateTime(2019, 8, 20)
                 },
                 new Teacher
@@ -61,7 +59,6 @@ namespace Fap.Infrastructure.Data.Seed
                     UserId = UserSeeder.Teacher3UserId,
                     TeacherCode = "T003",
                     Specialization = "Mathematics",
-                    PhoneNumber = "0923456789",
                     HireDate = new DateTime(2018, 3, 10)
                 },
                 new Teacher
@@ -70,7 +67,6 @@ namespace Fap.Infrastructure.Data.Seed
                     UserId = UserSeeder.Teacher4UserId,
                     TeacherCode = "T004",
                     Specialization = "Web Development",
-                    PhoneNumber = "0934567890",
                     HireDate = new DateTime(2021, 6, 1)
                 }
             };

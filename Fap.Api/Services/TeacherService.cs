@@ -46,8 +46,8 @@ namespace Fap.Api.Services
                     FullName = t.User?.FullName ?? "N/A",
                     Email = t.User?.Email ?? "N/A",
                     HireDate = t.HireDate,
-                    Specialization = t.Specialization ?? "N/A",
-                    PhoneNumber = t.PhoneNumber ?? "N/A",
+                    Specialization = t.Specialization,
+                    PhoneNumber = t.User?.PhoneNumber,  // ? CHANGED: Now from User.PhoneNumber
                     IsActive = t.User?.IsActive ?? false,
                     TotalClasses = t.Classes?.Count ?? 0
                 }).ToList();
@@ -78,8 +78,8 @@ namespace Fap.Api.Services
                 FullName = t.User?.FullName ?? "N/A",
                 Email = t.User?.Email ?? "N/A",
                 HireDate = t.HireDate,
-                Specialization = t.Specialization ?? "N/A",
-                PhoneNumber = t.PhoneNumber ?? "N/A",
+                Specialization = t.Specialization,
+                PhoneNumber = t.User?.PhoneNumber,  // ? CHANGED: Now from User.PhoneNumber
                 IsActive = t.User?.IsActive ?? false,
                 TotalClasses = t.Classes?.Count ?? 0
             }).ToList();
@@ -101,8 +101,8 @@ namespace Fap.Api.Services
                     FullName = teacher.User?.FullName ?? "N/A",
                     Email = teacher.User?.Email ?? "N/A",
                     HireDate = teacher.HireDate,
-                    Specialization = teacher.Specialization ?? "N/A",
-                    PhoneNumber = teacher.PhoneNumber ?? "N/A",
+                    Specialization = teacher.Specialization,
+                    PhoneNumber = teacher.User?.PhoneNumber,  // ? CHANGED: Now from User.PhoneNumber
                     IsActive = teacher.User?.IsActive ?? false,
                     CreatedAt = teacher.User?.CreatedAt ?? DateTime.MinValue,
                     
@@ -111,10 +111,10 @@ namespace Fap.Api.Services
                     {
                         ClassId = c.Id,
                         ClassCode = c.ClassCode,
-                        SubjectName = c.SubjectOffering?.Subject?.SubjectName ?? "N/A", // ? FIXED
-                        SubjectCode = c.SubjectOffering?.Subject?.SubjectCode ?? "N/A", // ? FIXED
-                        Credits = c.SubjectOffering?.Subject?.Credits ?? 0, // ? FIXED
-                        SemesterName = c.SubjectOffering?.Semester?.Name ?? "N/A", // ? FIXED
+                        SubjectName = c.SubjectOffering?.Subject?.SubjectName ?? "N/A",
+                        SubjectCode = c.SubjectOffering?.Subject?.SubjectCode ?? "N/A",
+                        Credits = c.SubjectOffering?.Subject?.Credits ?? 0,
+                        SemesterName = c.SubjectOffering?.Semester?.Name ?? "N/A",
                         TotalStudents = c.Members?.Count ?? 0,
                         TotalSlots = c.Slots?.Count ?? 0
                     }).ToList() ?? new List<TeachingClassInfo>(),

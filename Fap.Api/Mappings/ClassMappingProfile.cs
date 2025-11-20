@@ -59,7 +59,7 @@ namespace Fap.Api.Mappings
                         ? src.Teacher.User.Email
                         : null))
                 .ForMember(dest => dest.TeacherPhone, opt => opt.MapFrom(src =>
-                    src.Teacher != null ? src.Teacher.PhoneNumber : null))
+                    src.Teacher != null && src.Teacher.User != null ? src.Teacher.User.PhoneNumber : null))  // ? FIXED: Use User.PhoneNumber
 
                 // Class info
                 .ForMember(dest => dest.MaxEnrollment, opt => opt.MapFrom(src => src.MaxEnrollment))

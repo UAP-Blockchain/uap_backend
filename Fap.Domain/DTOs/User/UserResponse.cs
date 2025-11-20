@@ -9,6 +9,9 @@ namespace Fap.Domain.DTOs.User
         public DateTime CreatedAt { get; set; }
         public string RoleName { get; set; }
         
+        // ? NEW: Contact Info
+        public string? PhoneNumber { get; set; }
+        
         // Optional: Student/Teacher info
         public string? StudentCode { get; set; }
         public string? TeacherCode { get; set; }

@@ -46,6 +46,7 @@ namespace Fap.Infrastructure.Data.Seed
                     FullName = "System Administrator",
                     Email = "admin@fap.edu.vn",
                     PasswordHash = adminPasswordHash,
+                    PhoneNumber = "0900000000",  // ✅ Admin phone
                     IsActive = true,
                     RoleId = RoleSeeder.AdminRoleId,
                     CreatedAt = DateTime.UtcNow
@@ -58,6 +59,7 @@ namespace Fap.Infrastructure.Data.Seed
                     FullName = "Nguyễn Văn Thầy",
                     Email = "teacher1@fap.edu.vn",
                     PasswordHash = teacherPasswordHash,
+                    PhoneNumber = "0901234567",  // ✅ Teacher 1 phone
                     IsActive = true,
                     RoleId = RoleSeeder.TeacherRoleId,
                     CreatedAt = DateTime.UtcNow
@@ -68,6 +70,7 @@ namespace Fap.Infrastructure.Data.Seed
                     FullName = "Trần Thị Hồng",
                     Email = "teacher2@fap.edu.vn",
                     PasswordHash = teacherPasswordHash,
+                    PhoneNumber = "0912345678",  // ✅ Teacher 2 phone
                     IsActive = true,
                     RoleId = RoleSeeder.TeacherRoleId,
                     CreatedAt = DateTime.UtcNow
@@ -78,6 +81,7 @@ namespace Fap.Infrastructure.Data.Seed
                     FullName = "Lê Văn Toán",
                     Email = "teacher3@fap.edu.vn",
                     PasswordHash = teacherPasswordHash,
+                    PhoneNumber = "0923456789",  // ✅ Teacher 3 phone
                     IsActive = true,
                     RoleId = RoleSeeder.TeacherRoleId,
                     CreatedAt = DateTime.UtcNow
@@ -88,6 +92,7 @@ namespace Fap.Infrastructure.Data.Seed
                     FullName = "Phạm Thị Mai",
                     Email = "teacher4@fap.edu.vn",
                     PasswordHash = teacherPasswordHash,
+                    PhoneNumber = "0934567890",  // ✅ Teacher 4 phone
                     IsActive = true,
                     RoleId = RoleSeeder.TeacherRoleId,
                     CreatedAt = DateTime.UtcNow
@@ -100,6 +105,7 @@ namespace Fap.Infrastructure.Data.Seed
                     FullName = "Nguyễn Văn An",
                     Email = "student1@fap.edu.vn",
                     PasswordHash = studentPasswordHash,
+                    PhoneNumber = "0981111111",  // ✅ Student 1 phone
                     IsActive = true,
                     RoleId = RoleSeeder.StudentRoleId,
                     CreatedAt = DateTime.UtcNow
@@ -110,6 +116,7 @@ namespace Fap.Infrastructure.Data.Seed
                     FullName = "Trần Thị Bình",
                     Email = "student2@fap.edu.vn",
                     PasswordHash = studentPasswordHash,
+                    PhoneNumber = "0982222222",  // ✅ Student 2 phone
                     IsActive = true,
                     RoleId = RoleSeeder.StudentRoleId,
                     CreatedAt = DateTime.UtcNow
@@ -120,6 +127,7 @@ namespace Fap.Infrastructure.Data.Seed
                     FullName = "Lê Văn Cường",
                     Email = "student3@fap.edu.vn",
                     PasswordHash = studentPasswordHash,
+                    PhoneNumber = "0983333333",  // ✅ Student 3 phone
                     IsActive = true,
                     RoleId = RoleSeeder.StudentRoleId,
                     CreatedAt = DateTime.UtcNow
@@ -130,6 +138,7 @@ namespace Fap.Infrastructure.Data.Seed
                     FullName = "Phạm Thị Dung",
                     Email = "student4@fap.edu.vn",
                     PasswordHash = studentPasswordHash,
+                    PhoneNumber = "0984444444",  // ✅ Student 4 phone
                     IsActive = true,
                     RoleId = RoleSeeder.StudentRoleId,
                     CreatedAt = DateTime.UtcNow
@@ -140,6 +149,7 @@ namespace Fap.Infrastructure.Data.Seed
                     FullName = "Hoàng Văn Em",
                     Email = "student5@fap.edu.vn",
                     PasswordHash = studentPasswordHash,
+                    PhoneNumber = "0985555555",  // ✅ Student 5 phone
                     IsActive = true,
                     RoleId = RoleSeeder.StudentRoleId,
                     CreatedAt = DateTime.UtcNow
@@ -150,6 +160,7 @@ namespace Fap.Infrastructure.Data.Seed
                     FullName = "Vũ Thị Phương",
                     Email = "student6@fap.edu.vn",
                     PasswordHash = studentPasswordHash,
+                    PhoneNumber = "0986666666",  // ✅ Student 6 phone
                     IsActive = true,
                     RoleId = RoleSeeder.StudentRoleId,
                     CreatedAt = DateTime.UtcNow

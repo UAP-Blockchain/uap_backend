@@ -10,8 +10,8 @@ namespace Fap.Domain.DTOs.Teacher
         public string FullName { get; set; }
         public string Email { get; set; }
         public DateTime HireDate { get; set; }
-        public string Specialization { get; set; }
-        public string PhoneNumber { get; set; }
+        public string? Specialization { get; set; }
+        public string? PhoneNumber { get; set; }  // ? Now from User.PhoneNumber
         public bool IsActive { get; set; }
         public int TotalClasses { get; set; }
     }
@@ -23,8 +23,8 @@ namespace Fap.Domain.DTOs.Teacher
         public string FullName { get; set; }
         public string Email { get; set; }
         public DateTime HireDate { get; set; }
-        public string Specialization { get; set; }
-        public string PhoneNumber { get; set; }
+        public string? Specialization { get; set; }
+        public string? PhoneNumber { get; set; }  // ? Now from User.PhoneNumber
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
         

@@ -31,6 +31,10 @@ namespace Fap.Domain.DTOs.Student
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
         
+        // ? NEW: Contact & Blockchain Info
+        public string? PhoneNumber { get; set; }
+        public string? WalletAddress { get; set; }
+        
         // Enrollments (??ng ký l?p)
         public List<EnrollmentInfo> Enrollments { get; set; } = new();
         

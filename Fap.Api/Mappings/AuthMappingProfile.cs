@@ -50,7 +50,6 @@ namespace Fap.Api.Mappings
                 .ForMember(dest => dest.TeacherCode, opt => opt.MapFrom(src => src.TeacherCode))
                 .ForMember(dest => dest.HireDate, opt => opt.MapFrom(src => src.HireDate ?? DateTime.UtcNow))
                 .ForMember(dest => dest.Specialization, opt => opt.MapFrom(src => src.Specialization))
-                .ForMember(dest => dest.PhoneNumber, opt => opt.MapFrom(src => src.PhoneNumber))
                 .ForMember(dest => dest.User, opt => opt.Ignore())
                 .ForMember(dest => dest.Classes, opt => opt.Ignore());
 
@@ -86,8 +85,19 @@ namespace Fap.Api.Mappings
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
                 .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role.Name))
+                
+                // ? NEW: Contact Info
+                .ForMember(dest => dest.PhoneNumber, opt => opt.MapFrom(src => src.PhoneNumber))
+                
+                // Student/Teacher Info
                 .ForMember(dest => dest.StudentCode, opt => opt.MapFrom(src => src.Student != null ? src.Student.StudentCode : null))
-                .ForMember(dest => dest.TeacherCode, opt => opt.MapFrom(src => src.Teacher != null ? src.Teacher.TeacherCode : null));
+                .ForMember(dest => dest.TeacherCode, opt => opt.MapFrom(src => src.Teacher != null ? src.Teacher.TeacherCode : null))
+                
+                // ? Blockchain Info
+                .ForMember(dest => dest.WalletAddress, opt => opt.MapFrom(src => src.WalletAddress))
+                .ForMember(dest => dest.BlockchainTxHash, opt => opt.MapFrom(src => src.BlockchainTxHash))
+                .ForMember(dest => dest.BlockNumber, opt => opt.MapFrom(src => src.BlockNumber))
+                .ForMember(dest => dest.BlockchainRegisteredAt, opt => opt.MapFrom(src => src.BlockchainRegisteredAt));
         }
     }
 }
