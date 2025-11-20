@@ -27,6 +27,11 @@ namespace Fap.Infrastructure.Repositories
         public ISlotRepository Slots { get; }
         public IStudentRoadmapRepository StudentRoadmaps { get; }
         public IWalletRepository Wallets { get; }
+        public ICredentialRepository Credentials { get; }
+        public ICredentialRequestRepository CredentialRequests { get; }
+        public ICertificateTemplateRepository CertificateTemplates { get; }
+        public ISubjectCriteriaRepository SubjectCriteria { get; }
+        
         public UnitOfWork(FapDbContext context)
         {
             _context = context;
@@ -50,6 +55,10 @@ namespace Fap.Infrastructure.Repositories
             Slots = new SlotRepository(context);
             StudentRoadmaps = new StudentRoadmapRepository(context);
             Wallets = new WalletRepository(context);
+            Credentials = new CredentialRepository(context);
+            CredentialRequests = new CredentialRequestRepository(context);
+            CertificateTemplates = new CertificateTemplateRepository(context);
+            SubjectCriteria = new SubjectCriteriaRepository(context);
         }
 
         public async Task<int> SaveChangesAsync()

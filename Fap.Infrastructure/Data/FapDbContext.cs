@@ -21,6 +21,7 @@ namespace Fap.Infrastructure.Data
         public DbSet<GradeComponent> GradeComponents { get; set; }
         public DbSet<StudentRoadmap> StudentRoadmaps { get; set; }
         public DbSet<Credential> Credentials { get; set; }
+        public DbSet<CredentialRequest> CredentialRequests { get; set; } // ✅ NEW
         public DbSet<CertificateTemplate> CertificateTemplates { get; set; }
         public DbSet<Attendance> Attendances { get; set; }
         public DbSet<Slot> Slots { get; set; }

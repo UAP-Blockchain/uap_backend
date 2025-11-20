@@ -46,6 +46,7 @@ public class AttendanceRepository : GenericRepository<Attendance>, IAttendanceRe
             .Include(a => a.Subject)
             .Include(a => a.Slot)
                 .ThenInclude(s => s.Class)
+                .ThenInclude(c => c.SubjectOffering)
             .Include(a => a.Slot)
                 .ThenInclude(s => s.TimeSlot)
             .Where(a => a.StudentId == studentId)

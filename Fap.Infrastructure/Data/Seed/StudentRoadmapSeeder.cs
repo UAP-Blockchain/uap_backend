@@ -234,7 +234,7 @@ namespace Fap.Infrastructure.Data.Seed
                 SequenceOrder = sequenceOrder,
                 Status = status,
                 FinalScore = score,
-                LetterGrade = score.HasValue ? ConvertToLetterGrade(score.Value) : null,
+                LetterGrade = score.HasValue ? ConvertToLetterGrade(score.Value) : "", // ? FIX: Empty string instead of null
                 StartedAt = status != "Planned" ? DateTime.UtcNow.AddDays(-30) : null,
                 CompletedAt = status == "Completed" ? DateTime.UtcNow.AddDays(-7) : null,
                 Notes = GetRoadmapNotes(status, subjectName),
