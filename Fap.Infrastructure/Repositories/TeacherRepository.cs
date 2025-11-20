@@ -77,7 +77,7 @@ namespace Fap.Infrastructure.Repositories
                     (t.User != null && t.User.FullName.Contains(searchTerm)) ||
                     (t.User != null && t.User.Email.Contains(searchTerm)) ||
                     (t.Specialization != null && t.Specialization.Contains(searchTerm)) ||
-                    (t.PhoneNumber != null && t.PhoneNumber.Contains(searchTerm))
+                    (t.User != null && t.User.PhoneNumber != null && t.User.PhoneNumber.Contains(searchTerm))  // ✅ FIXED: Use User.PhoneNumber
                 );
             }
 

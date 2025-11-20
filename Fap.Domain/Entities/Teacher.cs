@@ -19,8 +19,9 @@ namespace Fap.Domain.Entities
         public string TeacherCode { get; set; } // Mã giáo viên
 
         public DateTime HireDate { get; set; } // Ngày bắt đầu làm việc
-        public string Specialization { get; set; } // Chuyên môn
-        public string PhoneNumber { get; set; }  // Số điện thoại
+
+        [MaxLength(200)]
+        public string? Specialization { get; set; } // Chuyên môn
 
         public User User { get; set; }  // Quan hệ với User
         public virtual ICollection<Class> Classes { get; set; }

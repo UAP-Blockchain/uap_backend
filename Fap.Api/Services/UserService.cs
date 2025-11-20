@@ -173,9 +173,10 @@ namespace Fap.Api.Services
                         user.Teacher.Specialization = request.Specialization;
                     }
 
+                    // ✅ FIXED: Update PhoneNumber on User entity, not Teacher
                     if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
                     {
-                        user.Teacher.PhoneNumber = request.PhoneNumber;
+                        user.PhoneNumber = request.PhoneNumber;
                     }
                 }
 

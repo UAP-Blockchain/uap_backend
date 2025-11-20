@@ -92,12 +92,16 @@ namespace Fap.Api.Services
                     IsActive = student.User?.IsActive ?? false,
                     CreatedAt = student.User?.CreatedAt ?? DateTime.MinValue,
                     
+                    // ? NEW: Contact & Blockchain Info
+                    PhoneNumber = student.User?.PhoneNumber,
+                    WalletAddress = student.User?.WalletAddress,
+                    
                     // Enrollments
                     Enrollments = student.Enrolls?.Select(e => new EnrollmentInfo
                     {
                         Id = e.Id,
                         ClassCode = e.Class?.ClassCode ?? "N/A",
-                        SubjectName = e.Class?.SubjectOffering?.Subject?.SubjectName ?? "N/A", // ? FIXED
+                        SubjectName = e.Class?.SubjectOffering?.Subject?.SubjectName ?? "N/A",
                         TeacherName = e.Class?.Teacher?.User?.FullName ?? "N/A",
                         RegisteredAt = e.RegisteredAt,
                         IsApproved = e.IsApproved
@@ -108,9 +112,9 @@ namespace Fap.Api.Services
                     {
                         ClassId = cm.Class.Id,
                         ClassCode = cm.Class.ClassCode,
-                        SubjectName = cm.Class.SubjectOffering?.Subject?.SubjectName ?? "N/A", // ? FIXED
-                        SubjectCode = cm.Class.SubjectOffering?.Subject?.SubjectCode ?? "N/A", // ? FIXED
-                        Credits = cm.Class.SubjectOffering?.Subject?.Credits ?? 0, // ? FIXED
+                        SubjectName = cm.Class.SubjectOffering?.Subject?.SubjectName ?? "N/A",
+                        SubjectCode = cm.Class.SubjectOffering?.Subject?.SubjectCode ?? "N/A",
+                        Credits = cm.Class.SubjectOffering?.Subject?.Credits ?? 0,
                         TeacherName = cm.Class.Teacher?.User?.FullName ?? "N/A",
                         JoinedAt = cm.JoinedAt
                     }).ToList() ?? new List<ClassInfo>(),

@@ -20,6 +20,9 @@ namespace Fap.Domain.Entities
         [Required] public Guid RoleId { get; set; }
         [ForeignKey(nameof(RoleId))] public Role Role { get; set; }
 
+        [MaxLength(20)]
+        public string? PhoneNumber { get; set; }
+
         [MaxLength(42)]
         public string? WalletAddress { get; set; }
         [MaxLength(66)]
