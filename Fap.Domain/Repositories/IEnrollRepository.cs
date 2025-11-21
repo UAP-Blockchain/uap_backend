@@ -29,6 +29,7 @@ namespace Fap.Domain.Repositories
         );
 
         Task<bool> IsStudentEnrolledInClassAsync(Guid studentId, Guid classId);
+        Task<bool> IsStudentEnrolledInSubjectAsync(Guid studentId, Guid subjectId, Guid semesterId);
 
         Task<List<Enroll>> GetEnrollmentsByClassIdAsync(Guid classId);
 

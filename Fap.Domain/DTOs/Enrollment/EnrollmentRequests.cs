@@ -1,10 +1,12 @@
 ﻿using Fap.Domain.DTOs.Common;
+using System.Text.Json.Serialization;
 
 namespace Fap.Domain.DTOs.Enrollment
 {
     /// Request to create a new enrollment
     public class CreateEnrollmentRequest
     {
+        [JsonIgnore]
         public Guid StudentId { get; set; }
         public Guid ClassId { get; set; }
     }

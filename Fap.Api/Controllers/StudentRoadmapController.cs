@@ -54,6 +54,53 @@ _logger = logger;
     }
 
         /// <summary>
+        /// GET /api/students/me/curriculum-roadmap - Get roadmap generated from curriculum
+        /// </summary>
+        [HttpGet("api/students/me/curriculum-roadmap")]
+        public async Task<IActionResult> GetMyCurriculumRoadmap()
+        {
+          try
+          {
+            var studentId = GetStudentIdFromToken();
+            if (studentId == Guid.Empty)
+              return BadRequest(new { message = "Student ID not found in token" });
+
+            var roadmap = await _roadmapService.GetCurriculumRoadmapAsync(studentId);
+            if (roadmap == null)
+              return NotFound(new { message = "Curriculum roadmap not available" });
+
+            return Ok(roadmap);
+          }
+          catch (Exception ex)
+          {
+            _logger.LogError(ex, "Error getting curriculum roadmap");
+            return StatusCode(500, new { message = "An error occurred while retrieving curriculum roadmap" });
+          }
+        }
+
+        /// <summary>
+        /// GET /api/students/me/graduation-status - Check graduation readiness based on curriculum (Student)
+        /// </summary>
+        [HttpGet("api/students/me/graduation-status")]
+        public async Task<IActionResult> GetMyGraduationStatus()
+        {
+          try
+          {
+            var studentId = GetStudentIdFromToken();
+            if (studentId == Guid.Empty)
+              return BadRequest(new { message = "Student ID not found in token" });
+
+            var status = await _roadmapService.EvaluateGraduationEligibilityAsync(studentId, persistIfEligible: true);
+            return Ok(status);
+          }
+          catch (Exception ex)
+          {
+            _logger.LogError(ex, "Error evaluating graduation status for current student");
+            return StatusCode(500, new { message = "An error occurred while evaluating graduation status" });
+          }
+        }
+
+        /// <summary>
         /// GET /api/students/me/roadmap/semesters/{semesterId} - Get my roadmap for specific semester (Student)
         /// </summary>
         [HttpGet("api/students/me/roadmap/semesters/{semesterId}")]
@@ -164,6 +211,48 @@ _logger.LogError(ex, "Error getting paged roadmap");
           _logger.LogError(ex, "Error getting roadmap for student {StudentId}", studentId);
        return StatusCode(500, new { message = "An error occurred while retrieving roadmap" });
             }
+        }
+
+        /// <summary>
+        /// GET /api/students/{studentId}/curriculum-roadmap - Admin view of curriculum-based roadmap
+        /// </summary>
+        [HttpGet("api/students/{studentId}/curriculum-roadmap")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetStudentCurriculumRoadmap(Guid studentId)
+        {
+          try
+          {
+            var roadmap = await _roadmapService.GetCurriculumRoadmapAsync(studentId);
+            if (roadmap == null)
+              return NotFound(new { message = "Curriculum roadmap not available for this student" });
+
+            return Ok(roadmap);
+          }
+          catch (Exception ex)
+          {
+            _logger.LogError(ex, "Error getting curriculum roadmap for student {StudentId}", studentId);
+            return StatusCode(500, new { message = "An error occurred while retrieving curriculum roadmap" });
+          }
+        }
+
+        /// <summary>
+        /// POST /api/students/{studentId}/graduation/evaluate - Evaluate graduation readiness (Admin)
+        /// </summary>
+        [HttpPost("api/students/{studentId}/graduation/evaluate")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> EvaluateGraduationStatus(Guid studentId, [FromBody] EvaluateGraduationRequest? request)
+        {
+          try
+          {
+            var persist = request?.MarkAsGraduated ?? true;
+            var status = await _roadmapService.EvaluateGraduationEligibilityAsync(studentId, persist);
+            return Ok(status);
+          }
+          catch (Exception ex)
+          {
+            _logger.LogError(ex, "Error evaluating graduation status for student {StudentId}", studentId);
+            return StatusCode(500, new { message = "An error occurred while evaluating graduation status" });
+          }
         }
 
         /// <summary>

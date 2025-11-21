@@ -11,12 +11,18 @@ namespace Fap.Api.Services
         private readonly IUnitOfWork _uow;
         private readonly IMapper _mapper;
         private readonly ILogger<ClassService> _logger;
+        private readonly IStudentRoadmapService _studentRoadmapService;
 
-        public ClassService(IUnitOfWork uow, IMapper mapper, ILogger<ClassService> logger)
+        public ClassService(
+            IUnitOfWork uow,
+            IMapper mapper,
+            ILogger<ClassService> logger,
+            IStudentRoadmapService studentRoadmapService)
         {
             _uow = uow;
             _mapper = mapper;
             _logger = logger;
+            _studentRoadmapService = studentRoadmapService;
         }
 
         // ========== GET CLASSES WITH PAGINATION ==========
@@ -342,13 +348,17 @@ namespace Fap.Api.Services
                     }
 
                     // ✅ Check if student is eligible for this subject in this semester
-                    var (isEligible, reasons) = await _uow.Students.CheckSubjectEligibilityAsync(
-                        studentId, subjectId, semesterId
-                    );
+                    var eligibility = await _studentRoadmapService.CheckCurriculumSubjectEligibilityAsync(studentId, subjectId);
 
-                    if (!isEligible)
+                    if (!eligibility.IsEligible)
                     {
-                        response.Errors.Add($"Student '{student.StudentCode}': {string.Join("; ", reasons)}");
+                        var reason = !string.IsNullOrWhiteSpace(eligibility.BlockingReason)
+                            ? eligibility.BlockingReason
+                            : (eligibility.Reasons.Any()
+                                ? string.Join("; ", eligibility.Reasons)
+                                : "Student is not eligible for this subject");
+
+                        response.Errors.Add($"Student '{student.StudentCode}': {reason}");
                         failedCount++;
                         continue;
                     }

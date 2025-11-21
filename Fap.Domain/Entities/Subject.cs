@@ -58,6 +58,7 @@ namespace Fap.Domain.Entities
         // Existing navigations
         public virtual ICollection<Grade> Grades { get; set; } = new List<Grade>();
         public virtual ICollection<StudentRoadmap> Roadmaps { get; set; } = new List<StudentRoadmap>();
+        public virtual ICollection<CurriculumSubject> CurriculumSubjects { get; set; } = new List<CurriculumSubject>();
         public virtual ICollection<SubjectCriteria> SubjectCriterias { get; set; } = new List<SubjectCriteria>();
     }
 }

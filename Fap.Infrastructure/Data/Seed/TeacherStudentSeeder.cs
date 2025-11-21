@@ -86,7 +86,8 @@ namespace Fap.Infrastructure.Data.Seed
                     StudentCode = "SE150001",
                     EnrollmentDate = new DateTime(2022, 9, 1),
                     GPA = 3.75m,
-                    IsGraduated = false
+                    IsGraduated = false,
+                    CurriculumId = 1  // Software Engineering 2024
                 },
                 new Student
                 {
@@ -95,7 +96,8 @@ namespace Fap.Infrastructure.Data.Seed
                     StudentCode = "SE150002",
                     EnrollmentDate = new DateTime(2022, 9, 1),
                     GPA = 3.50m,
-                    IsGraduated = false
+                    IsGraduated = false,
+                    CurriculumId = 1  // Software Engineering 2024
                 },
                 new Student
                 {
@@ -104,7 +106,8 @@ namespace Fap.Infrastructure.Data.Seed
                     StudentCode = "SE150003",
                     EnrollmentDate = new DateTime(2022, 9, 1),
                     GPA = 3.90m,
-                    IsGraduated = false
+                    IsGraduated = false,
+                    CurriculumId = 1  // Software Engineering 2024
                 },
                 new Student
                 {
@@ -113,7 +116,8 @@ namespace Fap.Infrastructure.Data.Seed
                     StudentCode = "SE150004",
                     EnrollmentDate = new DateTime(2022, 9, 1),
                     GPA = 3.25m,
-                    IsGraduated = false
+                    IsGraduated = false,
+                    CurriculumId = 1  // Software Engineering 2024
                 },
                 new Student
                 {
@@ -122,7 +126,8 @@ namespace Fap.Infrastructure.Data.Seed
                     StudentCode = "SE150005",
                     EnrollmentDate = new DateTime(2022, 9, 1),
                     GPA = 3.60m,
-                    IsGraduated = false
+                    IsGraduated = false,
+                    CurriculumId = 2  // Data Science 2024
                 },
                 new Student
                 {
@@ -131,7 +136,8 @@ namespace Fap.Infrastructure.Data.Seed
                     StudentCode = "SE150006",
                     EnrollmentDate = new DateTime(2022, 9, 1),
                     GPA = 3.40m,
-                    IsGraduated = false
+                    IsGraduated = false,
+                    CurriculumId = 2  // Data Science 2024
                 }
             };
 

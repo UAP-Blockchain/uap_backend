@@ -2,7 +2,6 @@ using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Enrollment;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace Fap.Api.Controllers
 {
@@ -11,6 +10,8 @@ namespace Fap.Api.Controllers
     [Authorize]
     public class EnrollmentsController : ControllerBase
     {
+        private const string StudentIdClaimType = "StudentId";
+
         private readonly IEnrollmentService _enrollmentService;
         private readonly ILogger<EnrollmentsController> _logger;
 
@@ -28,6 +29,14 @@ namespace Fap.Api.Controllers
         {
             try
             {
+                var studentIdClaim = User.FindFirst(StudentIdClaimType)?.Value;
+                if (string.IsNullOrEmpty(studentIdClaim) || !Guid.TryParse(studentIdClaim, out var studentId))
+                {
+                    return Unauthorized(new { message = "Missing student context in token" });
+                }
+
+                request.StudentId = studentId;
+
                 var result = await _enrollmentService.CreateEnrollmentAsync(request);
 
                 if (!result.Success)
@@ -131,17 +140,11 @@ namespace Fap.Api.Controllers
         {
             try
             {
-                // Get student ID from the authenticated user
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                var studentIdClaim = User.FindFirst(StudentIdClaimType)?.Value;
+                if (string.IsNullOrEmpty(studentIdClaim) || !Guid.TryParse(studentIdClaim, out var studentId))
                 {
-                    return Unauthorized(new { message = "Invalid user token" });
+                    return Unauthorized(new { message = "Missing student context in token" });
                 }
-
-                // In this case, we need to get the student record for the user
-                // For simplicity, assuming userId maps directly to studentId
-                // In reality, you may need to query: var student = await _uow.Students.GetByUserIdAsync(userId);
-                var studentId = userId; // Adjust based on your user-student relationship
 
                 var result = await _enrollmentService.DropEnrollmentAsync(id, studentId);
 

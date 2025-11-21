@@ -20,52 +20,36 @@ namespace Fap.Infrastructure.Data.Seed
                 return;
             }
 
+            var now = DateTime.UtcNow;
+            var currentYear = now.Year;
+
             var semesters = new List<Semester>
             {
-                new Semester
-                {
-                    Id = Spring2024Id,
-                    Name = "Spring 2024",
-                    StartDate = new DateTime(2024, 1, 1),
-                    EndDate = new DateTime(2024, 5, 31),
-                    IsActive = true,
-                    IsClosed = false,
-                    CreatedAt = DateTime.UtcNow
-                },
-                new Semester
-                {
-                    Id = Summer2024Id,
-                    Name = "Summer 2024",
-                    StartDate = new DateTime(2024, 6, 1),
-                    EndDate = new DateTime(2024, 8, 31),
-                    IsActive = true,
-                    IsClosed = false,
-                    CreatedAt = DateTime.UtcNow
-                },
-                new Semester
-                {
-                    Id = Fall2024Id,
-                    Name = "Fall 2024",
-                    StartDate = new DateTime(2024, 9, 1),
-                    EndDate = new DateTime(2024, 12, 31),
-                    IsActive = true,
-                    IsClosed = false,
-                    CreatedAt = DateTime.UtcNow
-                },
-                new Semester
-                {
-                    Id = Spring2025Id,
-                    Name = "Spring 2025",
-                    StartDate = new DateTime(2025, 1, 1),
-                    EndDate = new DateTime(2025, 5, 31),
-                    IsActive = false,
-                    IsClosed = false,
-                    CreatedAt = DateTime.UtcNow
-                }
+                BuildSemester(Spring2024Id, $"Spring {currentYear}", new DateTime(currentYear, 1, 1), new DateTime(currentYear, 5, 31), now),
+                BuildSemester(Summer2024Id, $"Summer {currentYear}", new DateTime(currentYear, 6, 1), new DateTime(currentYear, 8, 31), now),
+                BuildSemester(Fall2024Id, $"Fall {currentYear}", new DateTime(currentYear, 9, 1), new DateTime(currentYear, 12, 31), now),
+                BuildSemester(Spring2025Id, $"Spring {currentYear + 1}", new DateTime(currentYear + 1, 1, 1), new DateTime(currentYear + 1, 5, 31), now)
             };
 
             await _context.Semesters.AddRangeAsync(semesters);
             await SaveAsync("Semesters");
+        }
+
+        private static Semester BuildSemester(Guid id, string name, DateTime start, DateTime end, DateTime now)
+        {
+            var isCurrent = now >= start && now <= end;
+
+            return new Semester
+            {
+                Id = id,
+                Name = name,
+                StartDate = start,
+                EndDate = end,
+                IsActive = isCurrent,
+                IsClosed = now > end,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
         }
     }
 }
