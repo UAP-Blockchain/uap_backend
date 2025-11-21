@@ -32,6 +32,21 @@ namespace Fap.Api.Interfaces
         /// </summary>
         Task<PagedResult<StudentRoadmapDto>> GetPagedRoadmapAsync(Guid studentId, GetStudentRoadmapRequest request);
 
+        /// <summary>
+        /// Compute roadmap directly from curriculum and academic progress
+        /// </summary>
+        Task<CurriculumRoadmapDto?> GetCurriculumRoadmapAsync(Guid studentId);
+
+        /// <summary>
+        /// Check if a student is eligible to enroll in a curriculum subject.
+        /// </summary>
+        Task<SubjectEligibilityResultDto> CheckCurriculumSubjectEligibilityAsync(Guid studentId, Guid subjectId);
+
+        /// <summary>
+        /// Evaluate graduation readiness for a student and optionally persist graduation status.
+        /// </summary>
+        Task<GraduationEligibilityDto> EvaluateGraduationEligibilityAsync(Guid studentId, bool persistIfEligible = false);
+
         // ==================== ADMIN APIs ====================
 
         /// <summary>

@@ -154,81 +154,135 @@ namespace Fap.Infrastructure.Repositories
   /// Validates: roadmap contains subject, prerequisites met, not already in class
         /// </summary>
     public async Task<(List<Student> Students, int TotalCount)> GetEligibleStudentsForSubjectAsync(
-   Guid subjectId,
-      Guid semesterId,
+        Guid subjectId,
+        Guid semesterId,
         Guid? classId,
-    int page,
+        int page,
         int pageSize,
-     string? searchTerm)
-   {
-          // Get subject with prerequisites
-   var subject = await _context.Subjects
-  .AsNoTracking()
- .FirstOrDefaultAsync(s => s.Id == subjectId);
+        string? searchTerm)
+    {
+        // ✅ NEW CURRICULUM-BASED LOGIC
 
-    if (subject == null)
+        // Step 1: Get all curriculum IDs that contain this subject
+        var curriculumIds = await _context.CurriculumSubjects
+            .Where(cs => cs.SubjectId == subjectId)
+            .Select(cs => cs.CurriculumId)
+            .Distinct()
+            .ToListAsync();
+
+        if (!curriculumIds.Any())
+        {
+            // No curriculum contains this subject → No eligible students
+            return (new List<Student>(), 0);
+        }
+
+        // Step 2: Get prerequisite subject ID for this subject in each curriculum
+        var curriculumSubjects = await _context.CurriculumSubjects
+            .Where(cs => cs.SubjectId == subjectId && curriculumIds.Contains(cs.CurriculumId))
+            .Include(cs => cs.PrerequisiteSubject)
+            .ToListAsync();
+
+        // Step 3: Build query for eligible students
+        var query = _context.Students
+            .Include(s => s.User)
+            .Include(s => s.Curriculum)
+                .ThenInclude(c => c.CurriculumSubjects)
+                    .ThenInclude(cs => cs.Subject)
+            .Include(s => s.Grades)
+                .ThenInclude(g => g.Subject)
+            .Include(s => s.Enrolls)
+                .ThenInclude(e => e.Class)
+            .AsQueryable();
+
+        // Filter 1: Student must have a curriculum that contains this subject
+        query = query.Where(s => s.CurriculumId != null && curriculumIds.Contains(s.CurriculumId.Value));
+
+        // Filter 2: Student must NOT be graduated
+        query = query.Where(s => !s.IsGraduated);
+
+        // Filter 3: Student must be active
+        query = query.Where(s => s.User.IsActive);
+
+        // Filter 4: Student must NOT have completed this subject (no passing grade)
+        query = query.Where(s => !s.Grades.Any(g => 
+            g.SubjectId == subjectId && 
+            g.GradeComponent.Name.Contains("Final") && 
+            g.Score >= 5.0m));
+
+        // Filter 5: Student must NOT be currently enrolled in THIS class
+        if (classId.HasValue)
+        {
+            query = query.Where(s => !s.Enrolls.Any(e => 
+                e.ClassId == classId.Value && 
+                e.IsApproved));
+        }
+
+        // Filter 6: Student must NOT be enrolled in ANY other class for this subject this semester
+        query = query.Where(s => !s.Enrolls.Any(e =>
+            e.IsApproved &&
+            e.Class.SubjectOffering.SubjectId == subjectId &&
+            e.Class.SubjectOffering.SemesterId == semesterId));
+
+        // Apply search term
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(s =>
+                s.StudentCode.Contains(searchTerm) ||
+                s.User.FullName.Contains(searchTerm) ||
+                s.User.Email.Contains(searchTerm));
+        }
+
+        // Get total count before prerequisite filtering (prerequisite check is complex, done in-memory)
+        var candidateStudents = await query
+            .OrderBy(s => s.StudentCode)
+            .ToListAsync();
+
+        // Filter 7: Check prerequisites in-memory (complex logic)
+        var eligibleStudents = new List<Student>();
+
+        foreach (var student in candidateStudents)
+        {
+            if (student.CurriculumId == null)
+                continue;
+
+            // Find this subject in student's curriculum
+            var curriculumSubject = curriculumSubjects.FirstOrDefault(cs => 
+                cs.CurriculumId == student.CurriculumId.Value);
+
+            if (curriculumSubject == null)
+                continue;
+
+            // Check if prerequisite is met (if exists)
+            if (curriculumSubject.PrerequisiteSubjectId.HasValue)
             {
-       return (new List<Student>(), 0);
+                var prerequisiteSubjectId = curriculumSubject.PrerequisiteSubjectId.Value;
+
+                // Check if student has passed the prerequisite
+                var hasPassedPrerequisite = student.Grades.Any(g =>
+                    g.SubjectId == prerequisiteSubjectId &&
+                    g.GradeComponent.Name.Contains("Final") &&
+                    g.Score >= 5.0m);
+
+                if (!hasPassedPrerequisite)
+                {
+                    // Prerequisite not met → Skip this student
+                    continue;
+                }
             }
 
-   // Parse prerequisites
-       var prerequisiteCodes = string.IsNullOrWhiteSpace(subject.Prerequisites)
-    ? new List<string>()
-     : subject.Prerequisites.Split(',', StringSplitOptions.RemoveEmptyEntries)
-  .Select(p => p.Trim())
-           .ToList();
+            // All checks passed → Student is eligible
+            eligibleStudents.Add(student);
+        }
 
-   // ✅ FIX: Load ALL roadmaps, then filter in memory
-      var query = _context.Students
-    .Include(s => s.User)
-  .Include(s => s.Roadmaps)  // Load ALL roadmaps without filter
-   .ThenInclude(r => r.Subject)
-    .AsQueryable();
+        // Apply pagination
+        var totalCount = eligibleStudents.Count;
+        var pagedStudents = eligibleStudents
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
 
-      // Filter: Must have subject in roadmap for this semester with status "Planned"
-            query = query.Where(s => s.Roadmaps.Any(r => 
-     r.SubjectId == subjectId && 
-     r.SemesterId == semesterId &&
- r.Status == "Planned"));
-
-     // Filter: Prerequisites must be completed
-  if (prerequisiteCodes.Any())
-   {
-            query = query.Where(s => 
-         prerequisiteCodes.All(prereqCode =>
-     s.Roadmaps.Any(r => 
-              r.Subject.SubjectCode == prereqCode && 
-  r.Status == "Completed")));
-     }
-
-       // Filter: Not already in this class (if classId provided)
-   if (classId.HasValue)
-   {
- query = query.Where(s => !s.ClassMembers.Any(cm => cm.ClassId == classId.Value));
-   }
-
-      // Filter: Not graduated
-     query = query.Where(s => !s.IsGraduated);
-
-      // Apply search term
-if (!string.IsNullOrWhiteSpace(searchTerm))
-   {
- query = query.Where(s =>
-    s.StudentCode.Contains(searchTerm) ||
-              s.User.FullName.Contains(searchTerm) ||
-        s.User.Email.Contains(searchTerm));
-   }
-
-  var totalCount = await query.CountAsync();
-
-     var students = await query
-  .OrderBy(s => s.StudentCode)
-      .Skip((page - 1) * pageSize)
-          .Take(pageSize)
-        .ToListAsync();
-
-   return (students, totalCount);
-   }
+        return (pagedStudents, totalCount);
+    }
 
      /// <summary>
         /// Get students enrolled in a specific semester (have roadmap entries)
@@ -301,10 +355,12 @@ if (!string.IsNullOrWhiteSpace(searchTerm))
     .Select(p => p.Trim())
     .ToList();
 
-        var completedSubjectCodes = student.Roadmaps
-    .Where(r => r.Status == "Completed")
-       .Select(r => r.Subject.SubjectCode)
-    .ToHashSet();
+        var completedSubjectCodes = student.Roadmaps?
+            .Where(r => r.Status == "Completed" && r.Subject != null)
+            .Select(r => r.Subject.SubjectCode)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .ToHashSet()
+          ?? new HashSet<string>();
 
        var missingPrerequisites = prerequisiteCodes
       .Where(code => !completedSubjectCodes.Contains(code))
@@ -319,5 +375,30 @@ if (!string.IsNullOrWhiteSpace(searchTerm))
 
 return (true, reasons);
         }
+
+    public async Task<Student?> GetWithCurriculumAsync(Guid id)
+    {
+      return await _dbSet
+        .Include(s => s.User)
+        .Include(s => s.Curriculum)
+          .ThenInclude(c => c.CurriculumSubjects)
+            .ThenInclude(cs => cs.Subject)
+        .Include(s => s.Curriculum)
+          .ThenInclude(c => c.CurriculumSubjects)
+            .ThenInclude(cs => cs.PrerequisiteSubject)
+        .Include(s => s.Grades)
+          .ThenInclude(g => g.Subject)
+        .Include(s => s.Grades)
+          .ThenInclude(g => g.GradeComponent)
+        .Include(s => s.Enrolls)
+          .ThenInclude(e => e.Class)
+            .ThenInclude(c => c.SubjectOffering)
+              .ThenInclude(so => so.Subject)
+        .Include(s => s.Enrolls)
+          .ThenInclude(e => e.Class)
+            .ThenInclude(c => c.SubjectOffering)
+              .ThenInclude(so => so.Semester)
+        .FirstOrDefaultAsync(s => s.Id == id);
+    }
     }
 }

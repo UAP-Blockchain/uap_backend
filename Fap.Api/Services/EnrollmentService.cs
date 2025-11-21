@@ -68,6 +68,9 @@ namespace Fap.Api.Services
                     return response;
                 }
 
+                var semesterId = subjectOffering.SemesterId;
+                var subjectId = subject.Id;
+
                 // 4. ✅ NEW: Check if student is already a member of the class (in ClassMembers table)
                 var isAlreadyMember = await _uow.ClassMembers.IsStudentInClassAsync(
               request.ClassId,
@@ -95,49 +98,47 @@ namespace Fap.Api.Services
                     return response;
                 }
 
-                // 6. ✅✅ NEW: Check if subject is in student's roadmap
-                var roadmapEntry = await _uow.StudentRoadmaps.GetByStudentAndSubjectAsync(
-           request.StudentId,
-          subject.Id);
+                // 6. ✅ Ensure student is not already enrolled in another class for this subject this semester
+                var alreadyInSubjectThisSemester = await _uow.Enrolls.IsStudentEnrolledInSubjectAsync(
+                    request.StudentId,
+                    subjectId,
+                    semesterId);
 
-                if (roadmapEntry == null)
+                if (alreadyInSubjectThisSemester)
                 {
-                    response.Errors.Add($"Subject '{subject.SubjectCode}' is not in your academic roadmap. Please contact academic advisor.");
-                    response.Message = "Enrollment creation failed - Subject not in roadmap";
-                    _logger.LogWarning(
-                      "Enrollment rejected: Subject {SubjectId} not in roadmap for student {StudentId}",
-                         subject.Id, request.StudentId);
+                    response.Errors.Add($"Student already enrolled in another class for '{subject.SubjectCode}' this semester");
+                    response.Message = "Enrollment creation failed";
                     return response;
                 }
 
-                // 7. ✅✅ NEW: Check if student already completed this subject
-                if (roadmapEntry.Status == "Completed")
-                {
-                    response.Errors.Add($"You have already completed '{subject.SubjectCode}' with grade {roadmapEntry.LetterGrade}");
-                    response.Message = "Enrollment creation failed - Subject already completed";
-                    return response;
-                }
-
-                // 8. ✅✅ NEW: Check prerequisites
-                var prerequisiteValidation = await ValidatePrerequisitesAsync(request.StudentId, subject);
+                // 7. ✅ Curriculum-based eligibility (subject in curriculum, prerequisites, completion)
+                var prerequisiteValidation = await ValidateCurriculumEligibilityAsync(request.StudentId, subjectId, subject.SubjectCode);
                 if (!prerequisiteValidation.IsValid)
                 {
                     response.Errors.AddRange(prerequisiteValidation.Errors);
                     response.Message = "Enrollment creation failed - Prerequisites not met";
                     _logger.LogWarning(
-                         "Enrollment rejected: Prerequisites not met for student {StudentId}, subject {SubjectCode}",
+                         "Enrollment rejected: Curriculum eligibility failed for student {StudentId}, subject {SubjectCode}",
                                request.StudentId, subject.SubjectCode);
                     return response;
                 }
 
-                // 9. ✅✅ NEW: Check sequence order (warning only, not blocking)
-                var sequenceWarning = await CheckSequenceOrderAsync(request.StudentId, roadmapEntry);
-                if (!string.IsNullOrEmpty(sequenceWarning))
+                // Fetch roadmap entry for optional sequence warning
+                var roadmapEntry = await _uow.StudentRoadmaps.GetByStudentAndSubjectAsync(
+                    request.StudentId,
+                    subjectId);
+
+                // 8. ✅✅ NEW: Check sequence order (warning only, not blocking)
+                if (roadmapEntry != null)
                 {
-                    response.Warnings.Add(sequenceWarning);
-                    _logger.LogInformation(
-                             "Sequence warning for student {StudentId}: {Warning}",
-                   request.StudentId, sequenceWarning);
+                    var sequenceWarning = await CheckSequenceOrderAsync(request.StudentId, roadmapEntry);
+                    if (!string.IsNullOrEmpty(sequenceWarning))
+                    {
+                        response.Warnings.Add(sequenceWarning);
+                        _logger.LogInformation(
+                            "Sequence warning for student {StudentId}: {Warning}",
+                            request.StudentId, sequenceWarning);
+                    }
                 }
 
                 // 10. Create new enrollment request
@@ -443,60 +444,49 @@ namespace Fap.Api.Services
         // ==================== NEW HELPER METHODS ====================
 
         /// <summary>
-        /// Validate if student has completed all prerequisite subjects
+        /// Validate curriculum-based eligibility (subject in curriculum, prerequisites met, not already completed)
         /// </summary>
-        private async Task<(bool IsValid, List<string> Errors)> ValidatePrerequisitesAsync(
-Guid studentId,
-            Subject subject)
+        private async Task<(bool IsValid, List<string> Errors)> ValidateCurriculumEligibilityAsync(
+            Guid studentId,
+            Guid subjectId,
+            string? subjectCode)
         {
-            var errors = new List<string>();
+            var eligibility = await _roadmapService.CheckCurriculumSubjectEligibilityAsync(studentId, subjectId);
 
-            // No prerequisites required
-            if (string.IsNullOrWhiteSpace(subject.Prerequisites))
+            if (eligibility.IsEligible)
             {
-                return (true, errors);
+                return (true, new List<string>());
             }
 
-            // Parse prerequisite subject codes
-            var prerequisiteCodes = subject.Prerequisites
-    .Split(',', StringSplitOptions.RemoveEmptyEntries)
-    .Select(p => p.Trim())
-       .ToList();
+            var fallbackMessage = !string.IsNullOrWhiteSpace(subjectCode)
+                ? $"Curriculum eligibility failed for '{subjectCode}'"
+                : "Curriculum eligibility failed";
 
-            if (!prerequisiteCodes.Any())
+            var errors = eligibility.Reasons.Any()
+                ? new List<string>(eligibility.Reasons)
+                : new List<string> { fallbackMessage };
+
+            if (!string.IsNullOrWhiteSpace(eligibility.BlockingReason) && !errors.Contains(eligibility.BlockingReason))
             {
-                return (true, errors);
+                errors.Add(eligibility.BlockingReason);
             }
 
-            // Get student's completed subjects from roadmap
-            var completedSubjects = await _uow.StudentRoadmaps.GetCompletedSubjectsAsync(studentId);
-            var completedSubjectCodes = completedSubjects
-         .Select(r => r.Subject.SubjectCode)
-       .ToHashSet();
-
-            // Check each prerequisite
-            var missingPrerequisites = prerequisiteCodes
-             .Where(code => !completedSubjectCodes.Contains(code))
-        .ToList();
-
-            if (missingPrerequisites.Any())
-            {
-                errors.Add($"Missing prerequisites for '{subject.SubjectCode}': {string.Join(", ", missingPrerequisites)}");
-                errors.Add("You must complete these subjects before enrolling in this class.");
-                return (false, errors);
-            }
-
-            return (true, errors);
+            return (false, errors);
         }
 
         /// <summary>
         /// Check if student is enrolling subjects in recommended sequence order
         /// Returns warning message if out of sequence (non-blocking)
         /// </summary>
-        private async Task<string?> CheckSequenceOrderAsync(
-          Guid studentId,
-            StudentRoadmap currentRoadmapEntry)
+                private async Task<string?> CheckSequenceOrderAsync(
+                    Guid studentId,
+                        StudentRoadmap? currentRoadmapEntry)
         {
+                        if (currentRoadmapEntry == null)
+                        {
+                                return null;
+                        }
+
             // Get all planned subjects with lower sequence order
             var earlierPlannedSubjects = await _uow.StudentRoadmaps
                            .GetStudentRoadmapAsync(studentId);

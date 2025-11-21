@@ -33,6 +33,9 @@ namespace Fap.Domain.Entities
         public virtual ICollection<Enroll> Enrolls { get; set; }
         public virtual ICollection<Attendance> Attendances { get; set; }
 
+        public int? CurriculumId { get; set; }
+        public virtual Curriculum? Curriculum { get; set; }
+
         public virtual ICollection<ClassMember> ClassMembers { get; set; }
         public virtual ICollection<Credential> Credentials { get; set; }
         public virtual ICollection<StudentRoadmap> Roadmaps { get; set; } // 🆕

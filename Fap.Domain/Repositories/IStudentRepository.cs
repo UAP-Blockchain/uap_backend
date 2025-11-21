@@ -46,5 +46,10 @@ namespace Fap.Domain.Repositories
             Guid subjectId,
             Guid semesterId
         );
+
+        /// <summary>
+        /// Load student with curriculum, grades, and enrollments for roadmap generation
+        /// </summary>
+        Task<Student?> GetWithCurriculumAsync(Guid id);
     }
 }

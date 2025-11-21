@@ -34,6 +34,8 @@ namespace Fap.Infrastructure.Data
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<Otp> Otps { get; set; }  // ✅ NEW
         public DbSet<Wallet> Wallets { get; set; }  // ✅ NEW - Blockchain Wallets
+        public DbSet<Curriculum> Curriculums { get; set; }
+        public DbSet<CurriculumSubject> CurriculumSubjects { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -62,6 +64,12 @@ namespace Fap.Infrastructure.Data
                 .HasOne(s => s.User)
                 .WithOne(u => u.Student)
                 .HasForeignKey<Student>(s => s.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Student>()
+                .HasOne(s => s.Curriculum)
+                .WithMany(c => c.Students)
+                .HasForeignKey(s => s.CurriculumId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Teacher>()
@@ -255,6 +263,30 @@ namespace Fap.Infrastructure.Data
                 .WithMany()
                 .HasForeignKey(sr => sr.SemesterId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // ==================== CURRICULUM ====================
+            modelBuilder.Entity<CurriculumSubject>()
+                .HasOne(cs => cs.Curriculum)
+                .WithMany(c => c.CurriculumSubjects)
+                .HasForeignKey(cs => cs.CurriculumId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CurriculumSubject>()
+                .HasOne(cs => cs.Subject)
+                .WithMany(s => s.CurriculumSubjects)
+                .HasForeignKey(cs => cs.SubjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<CurriculumSubject>()
+                .HasOne(cs => cs.PrerequisiteSubject)
+                .WithMany()
+                .HasForeignKey(cs => cs.PrerequisiteSubjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<CurriculumSubject>()
+                .HasIndex(cs => new { cs.CurriculumId, cs.SubjectId })
+                .IsUnique()
+                .HasDatabaseName("UK_Curriculum_Subject");
 
             // ✅ OTP Configuration
             modelBuilder.Entity<Otp>()

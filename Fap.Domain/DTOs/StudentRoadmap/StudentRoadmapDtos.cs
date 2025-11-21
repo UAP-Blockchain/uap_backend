@@ -165,7 +165,7 @@ namespace Fap.Domain.DTOs.StudentRoadmap
     public class StudentRoadmapResponse
     {
         public bool Success { get; set; }
-        public string Message { get; set; }
+        public string Message { get; set; } = string.Empty;
         public Guid? RoadmapId { get; set; }
         public List<string> Errors { get; set; } = new();
     }
@@ -185,5 +185,95 @@ namespace Fap.Domain.DTOs.StudentRoadmap
         public string RecommendationReason { get; set; } // "Next in roadmap", "Prerequisites completed", etc.
         public List<string> Prerequisites { get; set; } = new();
         public bool AllPrerequisitesMet { get; set; }
+    }
+
+    /// <summary>
+    /// Roadmap generated dynamically from curriculum and academic progress
+    /// </summary>
+    public class CurriculumRoadmapDto
+    {
+        public Guid StudentId { get; set; }
+        public string StudentCode { get; set; }
+        public string StudentName { get; set; }
+        public int CurriculumId { get; set; }
+        public string CurriculumCode { get; set; }
+        public string CurriculumName { get; set; }
+        public int TotalSubjects { get; set; }
+        public int CompletedSubjects { get; set; }
+        public int FailedSubjects { get; set; }
+        public int InProgressSubjects { get; set; }
+        public int OpenSubjects { get; set; }
+        public int LockedSubjects { get; set; }
+        public List<CurriculumSemesterDto> Semesters { get; set; } = new();
+    }
+
+    public class CurriculumSemesterDto
+    {
+        public int SemesterNumber { get; set; }
+        public List<CurriculumSubjectStatusDto> Subjects { get; set; } = new();
+    }
+
+    public class CurriculumSubjectStatusDto
+    {
+        public Guid SubjectId { get; set; }
+        public string SubjectCode { get; set; }
+        public string SubjectName { get; set; }
+        public int Credits { get; set; }
+        public string Status { get; set; }
+        public decimal? FinalScore { get; set; }
+        public Guid? CurrentClassId { get; set; }
+        public string? CurrentClassCode { get; set; }
+        public Guid? CurrentSemesterId { get; set; }
+        public string? CurrentSemesterName { get; set; }
+        public string? PrerequisiteSubjectCode { get; set; }
+        public bool PrerequisitesMet { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    /// <summary>
+    /// Result of checking curriculum-driven eligibility for a subject.
+    /// </summary>
+    public class SubjectEligibilityResultDto
+    {
+        public bool IsEligible { get; set; }
+        public bool HasCurriculumData { get; set; }
+        public bool SubjectInCurriculum { get; set; }
+        public Guid SubjectId { get; set; }
+        public string SubjectCode { get; set; } = string.Empty;
+        public string SubjectName { get; set; } = string.Empty;
+        public string CurrentStatus { get; set; } = string.Empty;
+        public bool PrerequisitesMet { get; set; }
+        public string? BlockingReason { get; set; }
+        public List<string> Reasons { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Graduation eligibility summary derived from curriculum progress.
+    /// </summary>
+    public class GraduationEligibilityDto
+    {
+        public Guid StudentId { get; set; }
+        public string StudentCode { get; set; } = string.Empty;
+        public string StudentName { get; set; } = string.Empty;
+        public bool IsEligible { get; set; }
+        public int TotalSubjects { get; set; }
+        public int CompletedSubjects { get; set; }
+        public int FailedSubjects { get; set; }
+        public int InProgressSubjects { get; set; }
+        public int OpenSubjects { get; set; }
+        public int LockedSubjects { get; set; }
+        public int RequiredCredits { get; set; }
+        public int CompletedCredits { get; set; }
+        public List<CurriculumSubjectStatusDto> OutstandingSubjects { get; set; } = new();
+        public string? Message { get; set; }
+        public DateTime? GraduationDate { get; set; }
+    }
+
+    /// <summary>
+    /// Request payload to evaluate graduation status with optional persistence.
+    /// </summary>
+    public class EvaluateGraduationRequest
+    {
+        public bool MarkAsGraduated { get; set; } = true;
     }
 }

@@ -184,7 +184,7 @@ namespace Fap.Infrastructure.Repositories
                 .ToListAsync();
 
             return await _dbSet
-                .AnyAsync(e => e.StudentId == studentId && classIds.Contains(e.ClassId));
+                .AnyAsync(e => e.StudentId == studentId && classIds.Contains(e.ClassId) && e.IsApproved);
         }
 
         // ✅ NEW: Get enrollments by class ID

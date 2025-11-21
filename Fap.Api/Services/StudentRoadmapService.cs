@@ -3,6 +3,7 @@ using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Common;
 using Fap.Domain.DTOs.StudentRoadmap;
 using Fap.Domain.Entities;
+using Fap.Domain.Helpers;
 using Fap.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 
@@ -179,6 +180,273 @@ namespace Fap.Api.Services
             }
         }
 
+        public async Task<CurriculumRoadmapDto?> GetCurriculumRoadmapAsync(Guid studentId)
+        {
+            try
+            {
+                var student = await _uow.Students.GetWithCurriculumAsync(studentId);
+                if (student == null)
+                {
+                    return null;
+                }
+
+                if (student.Curriculum == null || student.CurriculumId == null)
+                {
+                    _logger.LogWarning("Student {StudentId} does not have a curriculum assigned", studentId);
+                    return null;
+                }
+
+                var snapshot = CurriculumProgressHelper.BuildSnapshot(student);
+
+                var result = new CurriculumRoadmapDto
+                {
+                    StudentId = student.Id,
+                    StudentCode = student.StudentCode,
+                    StudentName = student.User?.FullName ?? string.Empty,
+                    CurriculumId = student.CurriculumId.Value,
+                    CurriculumCode = student.Curriculum.Code,
+                    CurriculumName = student.Curriculum.Name,
+                    TotalSubjects = snapshot.TotalSubjects,
+                    CompletedSubjects = snapshot.CompletedSubjects,
+                    FailedSubjects = snapshot.FailedSubjects,
+                    InProgressSubjects = snapshot.InProgressSubjects,
+                    OpenSubjects = snapshot.OpenSubjects,
+                    LockedSubjects = snapshot.LockedSubjects
+                };
+
+                if (!snapshot.CurriculumSubjects.Any())
+                {
+                    return result;
+                }
+
+                var semesterMap = new Dictionary<int, CurriculumSemesterDto>();
+
+                foreach (var curriculumSubject in snapshot.CurriculumSubjects)
+                {
+                    if (!snapshot.Subjects.TryGetValue(curriculumSubject.SubjectId, out var progress))
+                    {
+                        continue;
+                    }
+
+                    if (!semesterMap.TryGetValue(curriculumSubject.SemesterNumber, out var semesterDto))
+                    {
+                        semesterDto = new CurriculumSemesterDto
+                        {
+                            SemesterNumber = curriculumSubject.SemesterNumber
+                        };
+                        semesterMap.Add(curriculumSubject.SemesterNumber, semesterDto);
+                    }
+
+                    semesterDto.Subjects.Add(MapToSubjectStatus(progress));
+                }
+
+                result.Semesters = semesterMap.Values
+                    .OrderBy(s => s.SemesterNumber)
+                    .Select(s =>
+                    {
+                        s.Subjects = s.Subjects
+                            .OrderBy(sub => sub.SubjectCode)
+                            .ToList();
+                        return s;
+                    })
+                    .ToList();
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating curriculum roadmap for student {StudentId}", studentId);
+                throw;
+            }
+        }
+
+        public async Task<SubjectEligibilityResultDto> CheckCurriculumSubjectEligibilityAsync(Guid studentId, Guid subjectId)
+        {
+            try
+            {
+                var result = new SubjectEligibilityResultDto
+                {
+                    SubjectId = subjectId
+                };
+
+                var student = await _uow.Students.GetWithCurriculumAsync(studentId);
+                if (student == null)
+                {
+                    result.IsEligible = false;
+                    result.Reasons.Add("Student not found");
+                    result.BlockingReason = result.Reasons.First();
+                    return result;
+                }
+
+                Subject? subjectEntity = null;
+
+                if (student.Curriculum?.CurriculumSubjects != null)
+                {
+                    subjectEntity = student.Curriculum.CurriculumSubjects
+                        .FirstOrDefault(cs => cs.SubjectId == subjectId)?.Subject;
+                }
+
+                subjectEntity ??= await _uow.Subjects.GetByIdAsync(subjectId);
+
+                if (subjectEntity != null)
+                {
+                    result.SubjectCode = subjectEntity.SubjectCode ?? string.Empty;
+                    result.SubjectName = subjectEntity.SubjectName ?? string.Empty;
+                }
+
+                if (student.Curriculum == null || student.CurriculumId == null)
+                {
+                    var (legacyEligible, legacyReasons) = await CheckLegacyEligibilityAsync(studentId, subjectEntity);
+                    result.HasCurriculumData = false;
+                    result.SubjectInCurriculum = false;
+                    result.IsEligible = legacyEligible;
+                    result.Reasons = legacyReasons;
+                    if (!legacyEligible && legacyReasons.Any())
+                    {
+                        result.BlockingReason = string.Join("; ", legacyReasons);
+                    }
+                    return result;
+                }
+
+                var snapshot = CurriculumProgressHelper.BuildSnapshot(student);
+                result.HasCurriculumData = true;
+
+                if (!snapshot.Subjects.TryGetValue(subjectId, out var progress) || progress == null)
+                {
+                    result.SubjectInCurriculum = false;
+                    result.IsEligible = false;
+                    result.Reasons.Add("Subject is not part of the student's curriculum");
+                    result.BlockingReason = result.Reasons.First();
+                    return result;
+                }
+
+                result.SubjectInCurriculum = true;
+                result.CurrentStatus = progress.Status;
+                result.PrerequisitesMet = progress.PrerequisitesMet;
+                result.SubjectCode = progress.CurriculumSubject.Subject.SubjectCode ?? string.Empty;
+                result.SubjectName = progress.CurriculumSubject.Subject.SubjectName ?? string.Empty;
+
+                var reasons = new List<string>();
+
+                if (!progress.PrerequisitesMet)
+                {
+                    reasons.Add(!string.IsNullOrEmpty(progress.PrerequisiteSubjectCode)
+                        ? $"Missing prerequisite subject {progress.PrerequisiteSubjectCode}"
+                        : "Missing prerequisite requirements");
+                }
+
+                if (progress.Status == "Completed")
+                {
+                    reasons.Add("Subject already completed");
+                }
+
+                if (progress.Status == "InProgress")
+                {
+                    reasons.Add("Subject is currently in progress");
+                }
+
+                if (progress.Status == "Locked" && !reasons.Any())
+                {
+                    reasons.Add("Subject is locked due to unmet prerequisites");
+                }
+
+                var isEligible = !reasons.Any();
+
+                if (progress.Status == "Failed" && progress.PrerequisitesMet)
+                {
+                    isEligible = true;
+                    reasons.Clear();
+                }
+
+                result.IsEligible = isEligible;
+                result.Reasons = reasons;
+
+                if (!isEligible && reasons.Any())
+                {
+                    result.BlockingReason = string.Join("; ", reasons);
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking curriculum eligibility for student {StudentId} and subject {SubjectId}", studentId, subjectId);
+                throw;
+            }
+        }
+
+        public async Task<GraduationEligibilityDto> EvaluateGraduationEligibilityAsync(Guid studentId, bool persistIfEligible = false)
+        {
+            try
+            {
+                var student = await _uow.Students.GetWithCurriculumAsync(studentId);
+                if (student == null)
+                {
+                    return new GraduationEligibilityDto
+                    {
+                        StudentId = studentId,
+                        IsEligible = false,
+                        Message = "Student not found"
+                    };
+                }
+
+                var result = new GraduationEligibilityDto
+                {
+                    StudentId = student.Id,
+                    StudentCode = student.StudentCode,
+                    StudentName = student.User?.FullName ?? string.Empty,
+                    GraduationDate = student.GraduationDate
+                };
+
+                if (student.Curriculum == null || student.CurriculumId == null)
+                {
+                    result.IsEligible = false;
+                    result.Message = "Student does not have an assigned curriculum";
+                    return result;
+                }
+
+                var snapshot = CurriculumProgressHelper.BuildSnapshot(student);
+
+                result.TotalSubjects = snapshot.TotalSubjects;
+                result.CompletedSubjects = snapshot.CompletedSubjects;
+                result.FailedSubjects = snapshot.FailedSubjects;
+                result.InProgressSubjects = snapshot.InProgressSubjects;
+                result.OpenSubjects = snapshot.OpenSubjects;
+                result.LockedSubjects = snapshot.LockedSubjects;
+                result.RequiredCredits = snapshot.RequiredCredits;
+                result.CompletedCredits = snapshot.CompletedCredits;
+
+                var outstandingSubjects = snapshot.Subjects.Values
+                    .Where(sp => sp.Status != "Completed")
+                    .OrderBy(sp => sp.CurriculumSubject.SemesterNumber)
+                    .ThenBy(sp => sp.CurriculumSubject.Subject.SubjectCode)
+                    .Select(MapToSubjectStatus)
+                    .ToList();
+
+                result.OutstandingSubjects = outstandingSubjects;
+                result.IsEligible = !outstandingSubjects.Any();
+                result.Message = result.IsEligible
+                    ? "All curriculum subjects completed"
+                    : "Outstanding subjects remain";
+
+                if (result.IsEligible && persistIfEligible && !student.IsGraduated)
+                {
+                    student.IsGraduated = true;
+                    student.GraduationDate = DateTime.UtcNow;
+                    _uow.Students.Update(student);
+                    await _uow.SaveChangesAsync();
+                    result.GraduationDate = student.GraduationDate;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error evaluating graduation eligibility for student {StudentId}", studentId);
+                throw;
+            }
+        }
+
         // ==================== ADMIN APIs ====================
 
         public async Task<StudentRoadmapDetailDto?> GetRoadmapByIdAsync(Guid id)
@@ -251,8 +519,10 @@ namespace Fap.Api.Services
                     SubjectId = request.SubjectId,
                     SemesterId = request.SemesterId,
                     SequenceOrder = request.SequenceOrder,
-                    Status = request.Status,
-                    Notes = request.Notes,
+                    Status = string.IsNullOrWhiteSpace(request.Status)
+                        ? "Planned"
+                        : request.Status.Trim(),
+                    Notes = request.Notes ?? string.Empty,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -424,8 +694,10 @@ namespace Fap.Api.Services
                         SubjectId = item.SubjectId,
                         SemesterId = item.SemesterId,
                         SequenceOrder = item.SequenceOrder,
-                        Status = item.Status,
-                        Notes = item.Notes,
+                        Status = string.IsNullOrWhiteSpace(item.Status)
+                            ? "Planned"
+                            : item.Status.Trim(),
+                        Notes = item.Notes ?? string.Empty,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };
@@ -500,6 +772,14 @@ namespace Fap.Api.Services
 
                 await _uow.SaveChangesAsync();
 
+                var graduationStatus = await EvaluateGraduationEligibilityAsync(studentId, true);
+                if (graduationStatus.IsEligible)
+                {
+                    _logger.LogInformation(
+                        "Student {StudentId} now satisfies graduation requirements",
+                        studentId);
+                }
+
                 _logger.LogInformation(
                "Updated roadmap to {Status} for student {StudentId}, subject {SubjectId}",
              status, studentId, subjectId);
@@ -510,6 +790,78 @@ namespace Fap.Api.Services
                         "Error updating roadmap on grade for student {StudentId}, subject {SubjectId}",
                        studentId, subjectId);
             }
+        }
+
+        private async Task<(bool IsEligible, List<string> Reasons)> CheckLegacyEligibilityAsync(Guid studentId, Subject? subject)
+        {
+            var reasons = new List<string>();
+
+            if (subject == null)
+            {
+                reasons.Add("Subject not found");
+                return (false, reasons);
+            }
+
+            if (string.IsNullOrWhiteSpace(subject.Prerequisites))
+            {
+                return (true, reasons);
+            }
+
+            var prerequisiteCodes = subject.Prerequisites
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(code => code.Trim())
+                .Where(code => !string.IsNullOrEmpty(code))
+                .ToList();
+
+            if (!prerequisiteCodes.Any())
+            {
+                return (true, reasons);
+            }
+
+            var completedSubjects = await _uow.StudentRoadmaps.GetCompletedSubjectsAsync(studentId);
+            var completedCodes = completedSubjects
+                .Where(r => r.Subject != null && !string.IsNullOrWhiteSpace(r.Subject.SubjectCode))
+                .Select(r => r.Subject.SubjectCode)
+                .ToHashSet();
+
+            var missingPrerequisites = prerequisiteCodes
+                .Where(code => !completedCodes.Contains(code))
+                .ToList();
+
+            if (missingPrerequisites.Any())
+            {
+                reasons.Add($"Missing prerequisites: {string.Join(", ", missingPrerequisites)}");
+                return (false, reasons);
+            }
+
+            return (true, reasons);
+        }
+
+        private static CurriculumSubjectStatusDto MapToSubjectStatus(SubjectProgressInfo progress)
+        {
+            var curriculumSubject = progress.CurriculumSubject;
+            return new CurriculumSubjectStatusDto
+            {
+                SubjectId = progress.SubjectId,
+                SubjectCode = curriculumSubject.Subject.SubjectCode ?? string.Empty,
+                SubjectName = curriculumSubject.Subject.SubjectName ?? string.Empty,
+                Credits = progress.Credits,
+                Status = progress.Status,
+                FinalScore = progress.FinalScore,
+                CurrentClassId = progress.CurrentClassId,
+                CurrentClassCode = progress.CurrentClassCode,
+                CurrentSemesterId = progress.CurrentSemesterId,
+                CurrentSemesterName = progress.CurrentSemesterName,
+                PrerequisiteSubjectCode = progress.PrerequisiteSubjectCode,
+                PrerequisitesMet = progress.PrerequisitesMet,
+                Notes = progress.Status switch
+                {
+                    "Locked" when !string.IsNullOrEmpty(progress.PrerequisiteSubjectCode) =>
+                        $"Requires {progress.PrerequisiteSubjectCode}",
+                    "Failed" => "Needs retake",
+                    _ => null
+                }
+            };
         }
     }
 }

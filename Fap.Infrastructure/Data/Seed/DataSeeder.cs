@@ -7,7 +7,7 @@ namespace Fap.Infrastructure.Data.Seed
     /// ✅ Refactored into multiple small files for maintainability
     /// ✅ Updated to use SubjectOffering pattern for multi-semester support
     /// ✅ ENHANCED: Added all missing seeders for complete test coverage
-    /// ✅ COMPLETE: All 23 database tables now have seed data
+    /// ✅ COMPLETE: All core database tables now have seed data
     /// </summary>
     public static class DataSeeder
     {
@@ -38,55 +38,61 @@ namespace Fap.Infrastructure.Data.Seed
                 // 3. Users (depends on Roles)
                 await new UserSeeder(context).SeedAsync();
 
-                // 4. Teachers & Students (depends on Users)
+                // 4. Curriculums (no dependencies)
+                await new CurriculumSeeder(context).SeedAsync();
+
+                // 5. Teachers & Students (depends on Users + Curriculums)
                 await new TeacherStudentSeeder(context).SeedAsync();
 
-                // 5. Semesters (no dependencies)
+                // 6. Semesters (no dependencies)
                 await new SemesterSeeder(context).SeedAsync();
 
-                // 6. Subjects & SubjectOfferings (depends on Semesters)
+                // 7. Subjects & SubjectOfferings (depends on Semesters)
                 await new SubjectOfferingSeeder(context).SeedAsync();
 
-                // 7. Subject Criteria (depends on Subjects) ✨ NEW
+                // 8. Curriculum Subjects (depends on Curriculums & Subjects)
+                await new CurriculumSubjectSeeder(context).SeedAsync();
+
+                // 9. Subject Criteria (depends on Subjects) ✨ NEW
                 await new SubjectCriteriaSeeder(context).SeedAsync();
 
-                // 8. TimeSlots (no dependencies)
+                // 10. TimeSlots (no dependencies)
                 await new TimeSlotSeeder(context).SeedAsync();
 
-                // 9. Classes (depends on SubjectOfferings and Teachers)
+                // 11. Classes (depends on SubjectOfferings and Teachers)
                 await new ClassSeeder(context).SeedAsync();
 
-                // 10. Enrollments & ClassMembers (depends on Classes and Students)
+                // 12. Enrollments & ClassMembers (depends on Classes and Students)
                 await new EnrollmentSeeder(context).SeedAsync();
 
-                // 11. Slots (depends on Classes and TimeSlots)
+                // 13. Slots (depends on Classes and TimeSlots)
                 await new SlotSeeder(context).SeedAsync();
 
-                // 12. Attendance (depends on Slots and Students)
+                // 14. Attendance (depends on Slots and Students)
                 await new AttendanceSeeder(context).SeedAsync();
 
-                // 13. Grade Components (no dependencies)
+                // 15. Grade Components (no dependencies)
                 await new GradeComponentSeeder(context).SeedAsync();
 
-                // 14. Grades (depends on Students, Subjects, GradeComponents)
+                // 16. Grades (depends on Students, Subjects, GradeComponents)
                 await new GradeSeeder(context).SeedAsync();
 
-                // 15. Certificate Templates (no dependencies)
+                // 17. Certificate Templates (no dependencies)
                 await new CertificateTemplateSeeder(context).SeedAsync();
 
-                // 16. Credentials (depends on Students and CertificateTemplates)
+                // 18. Credentials (depends on Students and CertificateTemplates)
                 await new CredentialSeeder(context).SeedAsync();
 
-                // 17. Student Roadmaps (depends on Students, Subjects, Semesters)
+                // 19. Student Roadmaps (depends on Students, Subjects, Semesters)
                 await new StudentRoadmapSeeder(context).SeedAsync();
 
-                // 18. Refresh Tokens (depends on Users) ✨ NEW
+                // 20. Refresh Tokens (depends on Users) ✨ NEW
                 await new RefreshTokenSeeder(context).SeedAsync();
 
-                // 19. OTPs (depends on Users) ✨ NEW
+                // 21. OTPs (depends on Users) ✨ NEW
                 await new OtpSeeder(context).SeedAsync();
 
-                // 20. Action Logs (depends on Users, Credentials, etc.) ✨ NEW - LAST
+                // 22. Action Logs (depends on Users, Credentials, etc.) ✨ NEW - LAST
                 await new ActionLogSeeder(context).SeedAsync();
 
                 // Final save
@@ -100,6 +106,8 @@ namespace Fap.Infrastructure.Data.Seed
                 Console.WriteLine($"   • Roles: {await context.Roles.CountAsync()}");
                 Console.WriteLine($"   • Permissions: {await context.Permissions.CountAsync()} ✨ NEW!");
                 Console.WriteLine($"   • Users: {await context.Users.CountAsync()}");
+                Console.WriteLine($"   • Curriculums: {await context.Curriculums.CountAsync()} ✨ NEW!");
+                Console.WriteLine($"   • Curriculum Subjects: {await context.CurriculumSubjects.CountAsync()} ✨ NEW!");
                 Console.WriteLine($"   • Teachers: {await context.Teachers.CountAsync()}");
                 Console.WriteLine($"   • Students: {await context.Students.CountAsync()}");
                 Console.WriteLine($"   • Semesters: {await context.Semesters.CountAsync()}");
@@ -123,7 +131,7 @@ namespace Fap.Infrastructure.Data.Seed
                 Console.WriteLine("==============================================");
                 Console.WriteLine();
                 Console.WriteLine("🎯 KEY ACHIEVEMENTS:");
-                Console.WriteLine("   ✅ ALL 23 DATABASE TABLES SEEDED");
+                Console.WriteLine("   ✅ ALL 25 DATABASE TABLES SEEDED");
                 Console.WriteLine("   ✅ Modular seeders - easy to maintain");
                 Console.WriteLine("   ✅ SubjectOffering pattern - multi-semester support");
                 Console.WriteLine("   ✅ No data duplication - normalized design");

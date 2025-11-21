@@ -180,7 +180,21 @@ namespace Fap.Api.Services
 
         /// <summary>
         /// Get students eligible for a specific class
-    /// Validates: roadmap, prerequisites, not already in class
+        /// 
+        /// ✅ CURRICULUM-BASED ELIGIBILITY LOGIC:
+        /// 1. Student must have a curriculum that includes this subject
+        /// 2. Student must not be graduated
+        /// 3. Student must be active
+        /// 4. Student must not have completed this subject (no passing grade >= 5.0)
+        /// 5. Student must not be enrolled in this specific class
+        /// 6. Student must not be enrolled in any other class for this subject in this semester
+        /// 7. Student must have passed all prerequisite subjects (from CurriculumSubject table)
+        /// 
+        /// Example: To enroll in SE201 (Software Engineering), student must:
+        /// - Have SE201 in their curriculum (e.g., SE-2024)
+        /// - Not have passed SE201 yet
+        /// - Have passed CS101 (prerequisite defined in CurriculumSubject)
+        /// - Not already be enrolled in any SE201 class this semester
         /// </summary>
         public async Task<PagedResult<StudentDto>> GetEligibleStudentsForClassAsync(
             Guid classId,
@@ -194,6 +208,7 @@ namespace Fap.Api.Services
                 var classEntity = await _uow.Classes.GetByIdWithDetailsAsync(classId);
                 if (classEntity == null)
                 {
+                    _logger.LogWarning("Class {ClassId} not found", classId);
                     return new PagedResult<StudentDto>(
                         new List<StudentDto>(),
                         0,
@@ -205,7 +220,11 @@ namespace Fap.Api.Services
                 var subjectId = classEntity.SubjectOffering.SubjectId;
                 var semesterId = classEntity.SubjectOffering.SemesterId;
 
-                // Get eligible students
+                _logger.LogInformation(
+                    "Getting eligible students for class {ClassCode} (Subject: {SubjectId}, Semester: {SemesterId})",
+                    classEntity.ClassCode, subjectId, semesterId);
+
+                // Get eligible students using curriculum-based logic
                 var (students, totalCount) = await _uow.Students.GetEligibleStudentsForSubjectAsync(
                     subjectId,
                     semesterId,
@@ -229,6 +248,10 @@ namespace Fap.Api.Services
                     TotalEnrollments = s.Enrolls?.Count ?? 0,
                     TotalClasses = s.ClassMembers?.Count ?? 0
                 }).ToList();
+
+                _logger.LogInformation(
+                    "Found {Count} eligible students for class {ClassCode}",
+                    totalCount, classEntity.ClassCode);
 
                 return new PagedResult<StudentDto>(
                     studentDtos,
