@@ -1,3 +1,4 @@
+using Fap.Domain.DTOs.Common;
 using Fap.Domain.DTOs.Grade;
 using System;
 using System.Collections.Generic;
@@ -16,5 +17,7 @@ namespace Fap.Api.Interfaces
         Task<ClassGradeReportDto?> GetClassGradesAsync(Guid classId, GetClassGradesRequest request);
    
         Task<StudentGradeTranscriptDto?> GetStudentGradesAsync(Guid studentId, GetStudentGradesRequest request);
+
+        Task<PagedResult<GradeDto>> GetAllGradesAsync(GetGradesRequest request);
     }
 }
