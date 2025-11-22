@@ -46,6 +46,19 @@ namespace Fap.Domain.DTOs.Grade
         public string SortOrder { get; set; } = "asc";
     }
 
+    /// Request to get all grades with filters
+    public class GetGradesRequest
+    {
+        public Guid? StudentId { get; set; }
+        public Guid? ClassId { get; set; }
+        public Guid? SubjectId { get; set; }
+        public Guid? GradeComponentId { get; set; }
+        public int Page { get; set; } = 1;
+        public int PageSize { get; set; } = 50;
+        public string? SortBy { get; set; } = "UpdatedAt";
+        public string? SortOrder { get; set; } = "desc";
+    }
+
     /// Response for grade operations
     public class GradeResponse
     {

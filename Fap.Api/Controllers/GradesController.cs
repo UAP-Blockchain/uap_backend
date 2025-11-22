@@ -94,5 +94,25 @@ namespace Fap.Api.Controllers
                 return StatusCode(500, new { message = "An error occurred while updating grade" });
             }
         }
+
+        /// <summary>
+        /// GET /api/grades - Get all grades with filters
+        /// Supports filtering by studentId, classId, subjectId, gradeComponentId
+        /// </summary>
+        [HttpGet]
+        [Authorize(Roles = "Teacher,Admin")]
+        public async Task<IActionResult> GetAllGrades([FromQuery] GetGradesRequest request)
+        {
+            try
+            {
+                var result = await _gradeService.GetAllGradesAsync(request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting grades: {ex.Message}");
+                return StatusCode(500, new { message = "An error occurred while retrieving grades" });
+            }
+        }
     }
 }

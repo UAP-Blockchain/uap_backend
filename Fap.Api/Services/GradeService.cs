@@ -4,6 +4,7 @@ using Fap.Domain.DTOs.Grade;
 using Fap.Domain.Entities;
 using Fap.Domain.Helpers;
 using Fap.Domain.Repositories;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -382,6 +383,92 @@ SubjectCode = firstGrade.Subject.SubjectCode,
             {
                 _logger.LogError(ex, "Error getting student grades for student {StudentId}", studentId);
                 return null;
+            }
+        }
+
+        public async Task<Domain.DTOs.Common.PagedResult<GradeDto>> GetAllGradesAsync(GetGradesRequest request)
+        {
+            try
+            {
+                var query = _uow.Grades.GetQueryable();
+
+                // Apply filters
+                if (request.StudentId.HasValue)
+                {
+                    query = query.Where(g => g.StudentId == request.StudentId.Value);
+                }
+
+                if (request.SubjectId.HasValue)
+                {
+                    query = query.Where(g => g.SubjectId == request.SubjectId.Value);
+                }
+
+                if (request.GradeComponentId.HasValue)
+                {
+                    query = query.Where(g => g.GradeComponentId == request.GradeComponentId.Value);
+                }
+
+                // Get total count
+                var totalCount = await query.CountAsync();
+
+                // Apply sorting
+                query = request.SortBy?.ToLower() switch
+                {
+                    "studentcode" => request.SortOrder?.ToLower() == "desc"
+                        ? query.OrderByDescending(g => g.Student.StudentCode)
+                        : query.OrderBy(g => g.Student.StudentCode),
+                    "studentname" => request.SortOrder?.ToLower() == "desc"
+                        ? query.OrderByDescending(g => g.Student.User.FullName)
+                        : query.OrderBy(g => g.Student.User.FullName),
+                    "subjectcode" => request.SortOrder?.ToLower() == "desc"
+                        ? query.OrderByDescending(g => g.Subject.SubjectCode)
+                        : query.OrderBy(g => g.Subject.SubjectCode),
+                    "score" => request.SortOrder?.ToLower() == "desc"
+                        ? query.OrderByDescending(g => g.Score)
+                        : query.OrderBy(g => g.Score),
+                    _ => request.SortOrder?.ToLower() == "desc"
+                        ? query.OrderByDescending(g => g.UpdatedAt)
+                        : query.OrderBy(g => g.UpdatedAt)
+                };
+
+                // Apply pagination
+                var grades = await query
+                    .Skip((request.Page - 1) * request.PageSize)
+                    .Take(request.PageSize)
+                    .Include(g => g.Student)
+                        .ThenInclude(s => s.User)
+                    .Include(g => g.Subject)
+                    .Include(g => g.GradeComponent)
+                    .ToListAsync();
+
+                var gradeDtos = grades.Select(g => new GradeDto
+                {
+                    Id = g.Id,
+                    StudentId = g.StudentId,
+                    StudentCode = g.Student.StudentCode,
+                    StudentName = g.Student.User.FullName,
+                    SubjectId = g.SubjectId,
+                    SubjectCode = g.Subject.SubjectCode,
+                    SubjectName = g.Subject.SubjectName,
+                    GradeComponentId = g.GradeComponentId,
+                    ComponentName = g.GradeComponent.Name,
+                    ComponentWeight = g.GradeComponent.WeightPercent,
+                    Score = g.Score,
+                    LetterGrade = g.LetterGrade ?? string.Empty,
+                    UpdatedAt = g.UpdatedAt
+                }).ToList();
+
+                return new Domain.DTOs.Common.PagedResult<GradeDto>(
+                    gradeDtos,
+                    totalCount,
+                    request.Page,
+                    request.PageSize
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all grades");
+                throw;
             }
         }
     }
