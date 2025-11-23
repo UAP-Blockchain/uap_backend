@@ -144,8 +144,35 @@ namespace Fap.Api.Services
                 await _uow.Subjects.AddAsync(subject);
                 await _uow.SaveChangesAsync();
 
-                _logger.LogInformation("✅ Subject created: {SubjectCode}. Will be auto-added to future semesters.", subject.SubjectCode);
-                return (true, "Subject created successfully. It will be automatically added to all future semesters.", subject.Id);
+                // ✅✅ AUTO-CREATE SubjectOfferings for ALL active semesters (not closed)
+                var activeSemesters = await _uow.Semesters.FindAsync(s => s.IsActive && !s.IsClosed);
+                var subjectOfferingsCreated = 0;
+
+                foreach (var semester in activeSemesters)
+                {
+                    var subjectOffering = new SubjectOffering
+                    {
+                        Id = Guid.NewGuid(),
+                        SubjectId = subject.Id,
+                        SemesterId = semester.Id,
+                        MaxClasses = 10, // Default value
+                        SemesterCapacity = 400, // Default value
+                        RegistrationStartDate = semester.StartDate.AddDays(-14), // 2 weeks before semester
+                        RegistrationEndDate = semester.StartDate.AddDays(7), // 1 week after semester start
+                        IsActive = true,
+                        Notes = $"Auto-created for new subject {subject.SubjectCode}"
+                    };
+
+                    await _uow.SubjectOfferings.AddAsync(subjectOffering);
+                    subjectOfferingsCreated++;
+                }
+
+                await _uow.SaveChangesAsync();
+
+                _logger.LogInformation("✅ Subject created: {SubjectCode}. Auto-created {Count} SubjectOfferings for active semesters.", 
+                    subject.SubjectCode, subjectOfferingsCreated);
+                
+                return (true, $"Subject created successfully with {subjectOfferingsCreated} subject offerings for active semesters.", subject.Id);
             }
             catch (Exception ex)
             {
