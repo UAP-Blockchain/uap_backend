@@ -145,61 +145,8 @@ namespace Fap.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// POST /api/students/me/profile-picture - Upload or update my profile picture
-        /// </summary>
-        [HttpPost("me/profile-picture")]
-        [Authorize(Roles = "Student")]
-        [RequestSizeLimit(MaxProfileImageSizeBytes)]
-        public async Task<IActionResult> UploadProfilePicture([FromForm] StudentProfileImageUploadRequest request)
-        {
-            try
-            {
-                var file = request.File;
-                if (file == null || file.Length == 0)
-                {
-                    return BadRequest(new { message = "Image file is required" });
-                }
+        // Removed UploadProfilePicture as it is now handled by Admin in UserController
 
-                if (!AllowedImageContentTypes.Contains(file.ContentType))
-                {
-                    return BadRequest(new { message = "Unsupported image format. Please upload JPEG, PNG, or WEBP" });
-                }
-
-                if (file.Length > MaxProfileImageSizeBytes)
-                {
-                    return BadRequest(new { message = "File is too large. Maximum allowed size is 5 MB" });
-                }
-
-                var userId = GetCurrentUserId();
-
-                await using var memoryStream = new MemoryStream();
-                await file.CopyToAsync(memoryStream);
-                memoryStream.Position = 0;
-
-                var result = await _studentService.UpdateProfileImageAsync(userId, memoryStream, file.FileName);
-
-                return Ok(new
-                {
-                    success = true,
-                    data = result
-                });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                _logger.LogWarning(ex, "Unauthorized profile image upload attempt");
-                return Unauthorized(new { message = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error uploading profile image");
-                return StatusCode(500, new { message = "An error occurred while uploading the profile picture" });
-            }
-        }
 
         // ==================== HELPER METHODS ====================
 

@@ -14,13 +14,15 @@ namespace Fap.Api.Services
         private readonly IUnitOfWork _uow;
         private readonly IMapper _mapper;
         private readonly ILogger<UserService> _logger;
+        private readonly ICloudStorageService _cloudStorageService;
         private readonly PasswordHasher<User> _hasher = new();
 
-        public UserService(IUnitOfWork uow, IMapper mapper, ILogger<UserService> logger)
+        public UserService(IUnitOfWork uow, IMapper mapper, ILogger<UserService> logger, ICloudStorageService cloudStorageService)
         {
             _uow = uow;
             _mapper = mapper;
             _logger = logger;
+            _cloudStorageService = cloudStorageService;
         }
 
         public async Task<PagedResult<UserResponse>> GetUsersAsync(GetUsersRequest request)
@@ -48,7 +50,7 @@ namespace Fap.Api.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ Error getting users: {ex.Message}");
+                _logger.LogError($" Error getting users: {ex.Message}");
                 throw;
             }
         }
@@ -284,6 +286,50 @@ namespace Fap.Api.Services
                 response.Errors.Add($"Internal error: {ex.Message}");
                 response.Message = "Deactivation failed";
                 return response;
+            }
+        }
+
+        public async Task<string> UpdateProfileImageAsync(Guid userId, Stream imageStream, string fileName)
+        {
+            try
+            {
+                if (imageStream == null || imageStream.Length == 0)
+                {
+                    throw new ArgumentException("Image stream is empty", nameof(imageStream));
+                }
+
+                var user = await _uow.Users.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new InvalidOperationException($"User with ID {userId} not found");
+                }
+
+                var uploadFileName = string.IsNullOrWhiteSpace(fileName)
+                    ? $"{user.Id}_profile"
+                    : fileName;
+
+                var uploadResult = await _cloudStorageService.UploadProfileImageAsync(imageStream, uploadFileName);
+
+                // Delete previous image if exists and differs
+                if (!string.IsNullOrWhiteSpace(user.ProfileImagePublicId) &&
+                    !string.Equals(user.ProfileImagePublicId, uploadResult.PublicId, StringComparison.OrdinalIgnoreCase))
+                {
+                    await _cloudStorageService.DeleteImageAsync(user.ProfileImagePublicId!);
+                }
+
+                user.ProfileImageUrl = uploadResult.Url;
+                user.ProfileImagePublicId = uploadResult.PublicId;
+                user.UpdatedAt = DateTime.UtcNow;
+
+                _uow.Users.Update(user);
+                await _uow.SaveChangesAsync();
+
+                return uploadResult.Url;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating profile image for user {UserId}", userId);
+                throw;
             }
         }
     }
