@@ -23,6 +23,12 @@ namespace Fap.Domain.Entities
         [MaxLength(20)]
         public string? PhoneNumber { get; set; }
 
+    [MaxLength(1024)]
+    public string? ProfileImageUrl { get; set; }
+
+    [MaxLength(255)]
+    public string? ProfileImagePublicId { get; set; }
+
         [MaxLength(42)]
         public string? WalletAddress { get; set; }
         [MaxLength(66)]

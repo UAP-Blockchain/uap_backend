@@ -1,4 +1,6 @@
+using System.IO;
 using System.Threading.Tasks;
+using Fap.Domain.DTOs.Common;
 
 namespace Fap.Api.Interfaces
 {
@@ -23,5 +25,20 @@ namespace Fap.Api.Interfaces
         /// Check if file exists
         /// </summary>
         Task<bool> FileExistsAsync(string fileName);
+
+        /// <summary>
+        /// Upload an image to cloud storage (returns URL & public ID)
+        /// </summary>
+        Task<CloudinaryUploadResult> UploadImageAsync(Stream imageStream, string fileName, string? folder = null);
+
+        /// <summary>
+        /// Upload a profile image using the configured profile folder
+        /// </summary>
+        Task<CloudinaryUploadResult> UploadProfileImageAsync(Stream imageStream, string fileName);
+
+        /// <summary>
+        /// Delete an image asset using its public ID
+        /// </summary>
+        Task<bool> DeleteImageAsync(string publicId);
     }
 }

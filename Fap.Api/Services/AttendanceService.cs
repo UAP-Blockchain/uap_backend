@@ -241,6 +241,7 @@ namespace Fap.Api.Services
                     StudentId = student.Id,
                     StudentCode = student.StudentCode,
                     StudentName = student.User.FullName,
+                    ProfileImageUrl = student.User.ProfileImageUrl,
                     PresentCount = presentCount,
                     AbsentCount = absentCount,
                     ExcusedCount = excusedCount,

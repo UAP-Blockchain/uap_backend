@@ -6,5 +6,6 @@ namespace Fap.Domain.Settings
         public string ApiKey { get; set; } = string.Empty;
         public string ApiSecret { get; set; } = string.Empty;
         public string CertificatesFolder { get; set; } = "certificates";
+        public string ProfileImagesFolder { get; set; } = "profile-images";
     }
 }

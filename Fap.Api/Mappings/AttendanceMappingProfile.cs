@@ -33,6 +33,10 @@ namespace Fap.Api.Mappings
                 .ForMember(dest => dest.ClassCode, opt => opt.MapFrom(src =>
                     src.Slot != null && src.Slot.Class != null
                         ? src.Slot.Class.ClassCode
+                        : null))
+                .ForMember(dest => dest.ProfileImageUrl, opt => opt.MapFrom(src =>
+                    src.Student != null && src.Student.User != null
+                        ? src.Student.User.ProfileImageUrl
                         : null));
 
             CreateMap<Attendance, AttendanceDetailDto>()

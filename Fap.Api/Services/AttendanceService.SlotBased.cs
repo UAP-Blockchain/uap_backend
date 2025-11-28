@@ -136,6 +136,7 @@ namespace Fap.Api.Services
                     StudentCode = student.StudentCode,
                     StudentName = student.User.FullName,
                     StudentEmail = student.User.Email,
+                    ProfileImageUrl = student.User.ProfileImageUrl,
                     IsPresent = attendance?.IsPresent,
                     Notes = attendance?.Notes,
                     IsExcused = attendance?.IsExcused ?? false,

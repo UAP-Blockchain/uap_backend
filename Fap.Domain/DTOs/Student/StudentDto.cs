@@ -16,6 +16,7 @@ namespace Fap.Domain.DTOs.Student
         public bool IsActive { get; set; }
         public int TotalEnrollments { get; set; }
         public int TotalClasses { get; set; }
+        public string? ProfileImageUrl { get; set; }
     }
 
     public class StudentDetailDto
@@ -34,8 +35,9 @@ namespace Fap.Domain.DTOs.Student
         // ? NEW: Contact & Blockchain Info
         public string? PhoneNumber { get; set; }
         public string? WalletAddress { get; set; }
+    public string? ProfileImageUrl { get; set; }
         
-        // Enrollments (??ng ký l?p)
+        // Enrollments (??ng kï¿½ l?p)
         public List<EnrollmentInfo> Enrollments { get; set; } = new();
         
         // Classes (L?p ?ang h?c)
@@ -69,5 +71,11 @@ namespace Fap.Domain.DTOs.Student
         public int Credits { get; set; }
         public string TeacherName { get; set; }
         public DateTime JoinedAt { get; set; }
+    }
+
+    public class StudentProfileImageDto
+    {
+        public string ImageUrl { get; set; } = string.Empty;
+        public string? PublicId { get; set; }
     }
 }
