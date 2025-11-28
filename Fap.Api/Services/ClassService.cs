@@ -2,8 +2,10 @@
 using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Class;
 using Fap.Domain.DTOs.Common;
+using Fap.Domain.DTOs.Slot;
 using Fap.Domain.Entities;
 using Fap.Domain.Repositories;
+using System.Linq;
 
 namespace Fap.Api.Services
 {
@@ -13,17 +15,20 @@ namespace Fap.Api.Services
         private readonly IMapper _mapper;
         private readonly ILogger<ClassService> _logger;
         private readonly IStudentRoadmapService _studentRoadmapService;
+    private readonly ISlotService _slotService;
 
         public ClassService(
             IUnitOfWork uow,
             IMapper mapper,
             ILogger<ClassService> logger,
-            IStudentRoadmapService studentRoadmapService)
+            IStudentRoadmapService studentRoadmapService,
+            ISlotService slotService)
         {
             _uow = uow;
             _mapper = mapper;
             _logger = logger;
             _studentRoadmapService = studentRoadmapService;
+            _slotService = slotService;
         }
 
         // ========== GET CLASSES WITH PAGINATION ==========
@@ -125,10 +130,47 @@ namespace Fap.Api.Services
                 await _uow.Classes.AddAsync(newClass);
                 await _uow.SaveChangesAsync();
 
+                if (request.InitialSlots?.Any() == true)
+                {
+                    foreach (var slotDefinition in request.InitialSlots.OrderBy(s => s.Date))
+                    {
+                        try
+                        {
+                            var slotDto = await _slotService.CreateSlotAsync(new CreateSlotRequest
+                            {
+                                ClassId = newClass.Id,
+                                Date = slotDefinition.Date,
+                                TimeSlotId = slotDefinition.TimeSlotId,
+                                SubstituteTeacherId = slotDefinition.SubstituteTeacherId,
+                                SubstitutionReason = slotDefinition.SubstitutionReason,
+                                Notes = slotDefinition.Notes
+                            });
+
+                            if (slotDto != null)
+                            {
+                                response.CreatedSlotIds.Add(slotDto.Id);
+                            }
+                        }
+                        catch (Exception slotEx)
+                        {
+                            var slotError = $"Could not create slot on {slotDefinition.Date:yyyy-MM-dd}: {slotEx.Message}";
+                            _logger.LogWarning(slotEx, slotError);
+                            response.SlotErrors.Add(slotError);
+                        }
+                    }
+                }
+
                 response.Success = true;
-                response.Message = "Class created successfully";
                 response.ClassId = newClass.Id;
-                _logger.LogInformation($"? Class {request.ClassCode} created successfully");
+                response.Message = response.SlotErrors.Any()
+                    ? "Class created but some slots could not be generated"
+                    : "Class created successfully";
+
+                _logger.LogInformation(
+                    "Class {ClassCode} created with {SlotCount} initial slots (slot errors: {SlotErrorCount})",
+                    request.ClassCode,
+                    response.CreatedSlotIds.Count,
+                    response.SlotErrors.Count);
 
                 return response;
             }
