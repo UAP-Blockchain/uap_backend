@@ -4,6 +4,7 @@ using Fap.Domain.DTOs.Grade;
 using Fap.Domain.DTOs.Attendance;
 using Fap.Domain.DTOs.Slot;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fap.Api.Controllers
@@ -207,6 +208,154 @@ IGradeService gradeService,
             {
                 _logger.LogError($"Error getting slots for class {id}: {ex.Message}");
                 return StatusCode(500, new { success = false, message = "An error occurred", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/classes/{id}/slots - Create a new slot tied to the specified class
+        /// </summary>
+        [HttpPost("{id}/slots")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CreateClassSlot(Guid id, [FromBody] CreateClassSlotRequest request)
+        {
+            try
+            {
+                var slot = await _slotService.CreateSlotAsync(new CreateSlotRequest
+                {
+                    ClassId = id,
+                    Date = request.Date,
+                    TimeSlotId = request.TimeSlotId,
+                    SubstituteTeacherId = request.SubstituteTeacherId,
+                    SubstitutionReason = request.SubstitutionReason,
+                    Notes = request.Notes
+                });
+
+                return StatusCode(StatusCodes.Status201Created, new
+                {
+                    success = true,
+                    message = "Slot created successfully",
+                    data = slot
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error creating slot for class {id}: {ex.Message}");
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/classes/{id}/slots/bulk - Create multiple slots for a class in a single call
+        /// </summary>
+        [HttpPost("{id}/slots/bulk")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> BulkCreateClassSlots(Guid id, [FromBody] BulkCreateClassSlotsRequest request)
+        {
+            if (request?.Slots == null || !request.Slots.Any())
+            {
+                return BadRequest(new { success = false, message = "At least one slot definition is required" });
+            }
+
+            var createdSlots = new List<SlotDto>();
+            var errors = new List<string>();
+
+            foreach (var slotDefinition in request.Slots)
+            {
+                try
+                {
+                    var slot = await _slotService.CreateSlotAsync(new CreateSlotRequest
+                    {
+                        ClassId = id,
+                        Date = slotDefinition.Date,
+                        TimeSlotId = slotDefinition.TimeSlotId,
+                        SubstituteTeacherId = slotDefinition.SubstituteTeacherId,
+                        SubstitutionReason = slotDefinition.SubstitutionReason,
+                        Notes = slotDefinition.Notes
+                    });
+
+                    if (slot != null)
+                    {
+                        createdSlots.Add(slot);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"[{slotDefinition.Date:yyyy-MM-dd}] {ex.Message}");
+                    _logger.LogWarning($"Bulk slot creation error for class {id}: {ex.Message}");
+                }
+            }
+
+            var statusCode = errors.Any()
+                ? StatusCodes.Status207MultiStatus
+                : StatusCodes.Status201Created;
+
+            return StatusCode(statusCode, new
+            {
+                success = errors.Count == 0,
+                created = createdSlots.Count,
+                failed = errors.Count,
+                data = createdSlots,
+                errors
+            });
+        }
+
+        /// <summary>
+        /// PUT /api/classes/{classId}/slots/{slotId} - Update a slot that belongs to a class
+        /// </summary>
+        [HttpPut("{classId}/slots/{slotId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateClassSlot(Guid classId, Guid slotId, [FromBody] UpdateSlotRequest request)
+        {
+            try
+            {
+                var slot = await _slotService.GetSlotByIdAsync(slotId);
+                if (slot == null || slot.ClassId != classId)
+                {
+                    return NotFound(new { success = false, message = "Slot not found for this class" });
+                }
+
+                var updatedSlot = await _slotService.UpdateSlotAsync(slotId, request);
+                return Ok(new
+                {
+                    success = true,
+                    message = "Slot updated successfully",
+                    data = updatedSlot
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error updating slot {slotId} for class {classId}: {ex.Message}");
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// DELETE /api/classes/{classId}/slots/{slotId} - Delete a slot scoped to a class
+        /// </summary>
+        [HttpDelete("{classId}/slots/{slotId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeleteClassSlot(Guid classId, Guid slotId)
+        {
+            try
+            {
+                var slot = await _slotService.GetSlotByIdAsync(slotId);
+                if (slot == null || slot.ClassId != classId)
+                {
+                    return NotFound(new { success = false, message = "Slot not found for this class" });
+                }
+
+                var deleted = await _slotService.DeleteSlotAsync(slotId);
+                if (!deleted)
+                {
+                    return BadRequest(new { success = false, message = "Unable to delete slot" });
+                }
+
+                return Ok(new { success = true, message = "Slot deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error deleting slot {slotId} for class {classId}: {ex.Message}");
+                return StatusCode(500, new { success = false, message = "An error occurred while deleting slot" });
             }
         }
 

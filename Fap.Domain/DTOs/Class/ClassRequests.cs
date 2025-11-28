@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using Fap.Domain.DTOs.Slot;
 
 namespace Fap.Domain.DTOs.Class
 {
@@ -15,6 +16,11 @@ namespace Fap.Domain.DTOs.Class
 
         [Required]
         public Guid TeacherId { get; set; }
+
+        /// <summary>
+        /// Optional initial slots that should be generated immediately after the class is created.
+        /// </summary>
+        public List<CreateClassSlotRequest> InitialSlots { get; set; } = new();
     }
 
     public class UpdateClassRequest
@@ -37,6 +43,8 @@ namespace Fap.Domain.DTOs.Class
         public Guid? ClassId { get; set; }
         public string ClassCode { get; set; }
         public List<string> Errors { get; set; } = new();
+        public List<Guid> CreatedSlotIds { get; set; } = new();
+        public List<string> SlotErrors { get; set; } = new();
     }
 
     public class ClassRosterRequest
