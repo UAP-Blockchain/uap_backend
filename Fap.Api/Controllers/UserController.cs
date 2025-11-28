@@ -1,8 +1,11 @@
 using Fap.Api.Interfaces;
 using Fap.Api.Services;
 using Fap.Domain.DTOs.User;
+using Fap.Api.DTOs.User;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
+using System.IO;
 
 namespace Fap.Api.Controllers
 {
@@ -128,6 +131,59 @@ namespace Fap.Api.Controllers
             {
                 _logger.LogError($"Error deactivating user {id}: {ex.Message}");
                 return StatusCode(500, new { message = "An error occurred while deactivating user" });
+            }
+        }
+
+        /// <summary>
+        /// Upload profile picture for a user (Admin only)
+        /// </summary>
+        [HttpPost("{id}/profile-picture")]
+        [Authorize(Roles = "Admin")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadProfilePicture(Guid id, [FromForm] UserProfileImageUploadRequest request)
+        {
+            try
+            {
+                var file = request.File;
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { message = "Image file is required" });
+                }
+
+                // Validate file type
+                var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+                if (!allowedTypes.Contains(file.ContentType))
+                {
+                    return BadRequest(new { message = "Unsupported image format. Please upload JPEG, PNG, or WEBP" });
+                }
+
+                // Validate file size (e.g., 5MB)
+                if (file.Length > 5 * 1024 * 1024)
+                {
+                    return BadRequest(new { message = "File is too large. Maximum allowed size is 5 MB" });
+                }
+
+                await using var memoryStream = new MemoryStream();
+                await file.CopyToAsync(memoryStream);
+                memoryStream.Position = 0;
+
+                var imageUrl = await _userService.UpdateProfileImageAsync(id, memoryStream, file.FileName);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Profile picture updated successfully",
+                    data = new { imageUrl }
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading profile image for user {UserId}", id);
+                return StatusCode(500, new { message = "An error occurred while uploading the profile picture" });
             }
         }
     }
