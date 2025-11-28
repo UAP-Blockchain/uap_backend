@@ -21,6 +21,7 @@ public class AttendanceDto
     public bool IsExcused { get; set; }
     public string? ExcuseReason { get; set; }
     public DateTime RecordedAt { get; set; }
+    public string? ProfileImageUrl { get; set; }
 }
 
 public class AttendanceDetailDto : AttendanceDto
@@ -61,6 +62,7 @@ public class StudentAttendanceSummary
     public Guid StudentId { get; set; }
     public string StudentCode { get; set; }
     public string StudentName { get; set; }
+    public string? ProfileImageUrl { get; set; }
     public int PresentCount { get; set; }
     public int AbsentCount { get; set; }
     public int ExcusedCount { get; set; }
@@ -126,6 +128,7 @@ public class StudentAttendanceRecord
     public string StudentCode { get; set; }
     public string StudentName { get; set; }
     public string StudentEmail { get; set; }
+    public string? ProfileImageUrl { get; set; }
     public bool? IsPresent { get; set; }
     public string? Notes { get; set; }
     public bool IsExcused { get; set; }

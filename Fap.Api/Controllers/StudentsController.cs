@@ -5,7 +5,10 @@ using Fap.Domain.DTOs.Student;
 using Fap.Domain.DTOs.Attendance;
 using Fap.Domain.DTOs.Schedule;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.IO;
+using System.Linq;
 using System.Security.Claims;
 
 namespace Fap.Api.Controllers
@@ -21,6 +24,8 @@ namespace Fap.Api.Controllers
         private readonly IAttendanceService _attendanceService;
         private readonly IScheduleService _scheduleService;
         private readonly ILogger<StudentsController> _logger;
+    private const long MaxProfileImageSizeBytes = 5 * 1024 * 1024; // 5 MB
+    private static readonly string[] AllowedImageContentTypes = { "image/jpeg", "image/png", "image/webp" };
 
         public StudentsController(
             IStudentService studentService,
@@ -136,6 +141,61 @@ namespace Fap.Api.Controllers
             {
                 _logger.LogError(ex, "Error getting current student profile");
                 return StatusCode(500, new { message = "An error occurred while retrieving your profile" });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/students/me/profile-picture - Upload or update my profile picture
+        /// </summary>
+        [HttpPost("me/profile-picture")]
+        [Authorize(Roles = "Student")]
+        [RequestSizeLimit(MaxProfileImageSizeBytes)]
+        public async Task<IActionResult> UploadProfilePicture([FromForm] IFormFile? file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { message = "Image file is required" });
+                }
+
+                if (!AllowedImageContentTypes.Contains(file.ContentType))
+                {
+                    return BadRequest(new { message = "Unsupported image format. Please upload JPEG, PNG, or WEBP" });
+                }
+
+                if (file.Length > MaxProfileImageSizeBytes)
+                {
+                    return BadRequest(new { message = "File is too large. Maximum allowed size is 5 MB" });
+                }
+
+                var userId = GetCurrentUserId();
+
+                await using var memoryStream = new MemoryStream();
+                await file.CopyToAsync(memoryStream);
+                memoryStream.Position = 0;
+
+                var result = await _studentService.UpdateProfileImageAsync(userId, memoryStream, file.FileName);
+
+                return Ok(new
+                {
+                    success = true,
+                    data = result
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized profile image upload attempt");
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading profile image");
+                return StatusCode(500, new { message = "An error occurred while uploading the profile picture" });
             }
         }
 

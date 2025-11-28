@@ -1,6 +1,7 @@
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Fap.Api.Interfaces;
+using Fap.Domain.DTOs.Common;
 using Fap.Domain.Settings;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -37,7 +38,7 @@ namespace Fap.Api.Services
             _logger.LogInformation("Cloudinary initialized: {CloudName}", _settings.CloudName);
         }
 
-        public async Task<string> UploadPdfAsync(byte[] pdfBytes, string fileName)
+    public async Task<string> UploadPdfAsync(byte[] pdfBytes, string fileName)
         {
             try
             {
@@ -103,7 +104,7 @@ namespace Fap.Api.Services
             }
         }
 
-        public async Task<byte[]?> DownloadPdfAsync(string url)
+    public async Task<byte[]?> DownloadPdfAsync(string url)
         {
             try
             {
@@ -140,6 +141,105 @@ namespace Fap.Api.Services
                 _logger.LogError(ex, "Error checking file existence: {FileName}", fileName);
                 return false;
             }
+        }
+
+        public async Task<CloudinaryUploadResult> UploadImageAsync(Stream imageStream, string fileName, string? folder = null)
+        {
+            try
+            {
+                var targetFolder = string.IsNullOrWhiteSpace(folder)
+                    ? _settings.CertificatesFolder
+                    : folder!;
+
+                using var memoryStream = new MemoryStream();
+                await imageStream.CopyToAsync(memoryStream);
+                memoryStream.Position = 0;
+
+                var publicId = BuildPublicId(targetFolder, fileName);
+
+                var uploadParams = new ImageUploadParams
+                {
+                    File = new FileDescription(fileName, memoryStream),
+                    PublicId = publicId,
+                    Folder = targetFolder,
+                    Overwrite = true,
+                    UseFilename = false,
+                    UniqueFilename = false,
+                    Transformation = new Transformation()
+                        .Quality("auto")
+                        .FetchFormat("auto")
+                };
+
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+
+                if (uploadResult.Error != null)
+                {
+                    _logger.LogError("Cloudinary image upload error: {Error}", uploadResult.Error.Message);
+                    throw new Exception($"Image upload failed: {uploadResult.Error.Message}");
+                }
+
+                var result = new CloudinaryUploadResult
+                {
+                    Url = uploadResult.SecureUrl?.ToString() ?? string.Empty,
+                    PublicId = uploadResult.PublicId,
+                    Width = uploadResult.Width,
+                    Height = uploadResult.Height,
+                    Format = uploadResult.Format
+                };
+
+                _logger.LogInformation("Image uploaded to Cloudinary: {PublicId}", uploadResult.PublicId);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading image to Cloudinary: {FileName}", fileName);
+                throw;
+            }
+        }
+
+        public Task<CloudinaryUploadResult> UploadProfileImageAsync(Stream imageStream, string fileName)
+            => UploadImageAsync(imageStream, fileName, _settings.ProfileImagesFolder);
+
+        public async Task<bool> DeleteImageAsync(string publicId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(publicId))
+                {
+                    return true;
+                }
+
+                var deleteParams = new DeletionParams(publicId)
+                {
+                    ResourceType = ResourceType.Image
+                };
+
+                var result = await _cloudinary.DestroyAsync(deleteParams);
+
+                var success = result.Result == "ok" || result.Result == "not found";
+                if (success)
+                {
+                    _logger.LogInformation("Image deleted from Cloudinary: {PublicId}", publicId);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to delete image {PublicId}: {Result}", publicId, result.Result);
+                }
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting image from Cloudinary: {PublicId}", publicId);
+                return false;
+            }
+        }
+
+        private static string BuildPublicId(string folder, string fileName)
+        {
+            var safeFileName = Path.GetFileNameWithoutExtension(fileName);
+            var uniqueId = Guid.NewGuid().ToString("N");
+            return $"{folder}/{uniqueId}_{safeFileName}";
         }
     }
 }
