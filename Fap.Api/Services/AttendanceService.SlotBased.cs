@@ -43,6 +43,8 @@ namespace Fap.Api.Services
                 throw new InvalidOperationException("Class not found");
             }
 
+            var createdAttendances = new List<Attendance>();
+
             // Take attendance for each student
             foreach (var studentDto in request.Students)
             {
@@ -66,9 +68,48 @@ namespace Fap.Api.Services
                 };
 
                 await _unitOfWork.Attendances.AddAsync(attendance);
+                createdAttendances.Add(attendance);
             }
 
             await _unitOfWork.SaveChangesAsync();
+
+            try
+            {
+                var onChainClassId = (ulong)Math.Abs(classEntity.Id.GetHashCode());
+                var sessionDateUnix = ToUnixSecondsUtc(slot.Date.ToUniversalTime());
+
+                foreach (var attendance in createdAttendances)
+                {
+                    var student = await _unitOfWork.Students.GetByIdAsync(attendance.StudentId);
+                    var wallet = student?.User?.WalletAddress;
+                    if (string.IsNullOrWhiteSpace(wallet))
+                    {
+                        continue;
+                    }
+
+                    var status = ResolveOnChainStatus(attendance);
+
+                    var (recordId, txHash) = await _blockchainService.MarkAttendanceOnChainAsync(
+                        onChainClassId,
+                        wallet,
+                        sessionDateUnix,
+                        status,
+                        attendance.Notes ?? string.Empty
+                    );
+
+                    attendance.OnChainRecordId = recordId;
+                    attendance.OnChainTransactionHash = txHash;
+                    attendance.IsOnBlockchain = recordId > 0;
+
+                    _unitOfWork.Attendances.Update(attendance);
+                }
+
+                await _unitOfWork.SaveChangesAsync();
+            }
+            catch
+            {
+                // Best-effort: ignore blockchain failures to not block attendance flow
+            }
 
             // Return slot attendance
                         return await GetSlotAttendanceAsync(slotId)
