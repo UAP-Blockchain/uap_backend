@@ -33,5 +33,13 @@ namespace Fap.Domain.Entities
         public string? ExcuseReason { get; set; }
         
         public DateTime RecordedAt { get; set; } = DateTime.UtcNow;
+
+        // Blockchain integration
+        public long? OnChainRecordId { get; set; }
+
+        [MaxLength(100)]
+        public string? OnChainTransactionHash { get; set; }
+
+        public bool IsOnBlockchain { get; set; } = false;
     }
 }

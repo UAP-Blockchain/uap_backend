@@ -689,6 +689,257 @@ namespace Fap.Api.Services
 
         #endregion
 
+                #region Attendance Management Contract Methods
+
+                private const string AttendanceManagementAbi = @"[
+                    {
+                        'anonymous': false,
+                        'inputs': [
+                            { 'indexed': true,  'internalType': 'uint256', 'name': 'recordId',       'type': 'uint256' },
+                            { 'indexed': true,  'internalType': 'uint256', 'name': 'classId',        'type': 'uint256' },
+                            { 'indexed': true,  'internalType': 'address', 'name': 'studentAddress', 'type': 'address' },
+                            { 'indexed': false, 'internalType': 'uint8',   'name': 'status',         'type': 'uint8' },
+                            { 'indexed': false, 'internalType': 'address', 'name': 'markedBy',       'type': 'address' }
+                        ],
+                        'name': 'AttendanceMarked',
+                        'type': 'event'
+                    },
+                    {
+                        'anonymous': false,
+                        'inputs': [
+                            { 'indexed': true,  'internalType': 'uint256', 'name': 'recordId', 'type': 'uint256' },
+                            { 'indexed': false, 'internalType': 'uint8',   'name': 'oldStatus','type': 'uint8' },
+                            { 'indexed': false, 'internalType': 'uint8',   'name': 'newStatus','type': 'uint8' },
+                            { 'indexed': false, 'internalType': 'address', 'name': 'updatedBy','type': 'address' }
+                        ],
+                        'name': 'AttendanceUpdated',
+                        'type': 'event'
+                    },
+                    {
+                        'inputs': [
+                            { 'internalType': 'uint256', 'name': 'classId',       'type': 'uint256' },
+                            { 'internalType': 'address', 'name': 'studentAddress', 'type': 'address' },
+                            { 'internalType': 'uint256', 'name': 'sessionDate',   'type': 'uint256' },
+                            { 'internalType': 'uint8',   'name': 'status',        'type': 'uint8' },
+                            { 'internalType': 'string',  'name': 'notes',         'type': 'string' }
+                        ],
+                        'name': 'markAttendance',
+                        'outputs': [
+                            { 'internalType': 'uint256', 'name': '', 'type': 'uint256' }
+                        ],
+                        'stateMutability': 'nonpayable',
+                        'type': 'function'
+                    },
+                    {
+                        'inputs': [
+                            { 'internalType': 'uint256', 'name': 'recordId',  'type': 'uint256' },
+                            { 'internalType': 'uint8',   'name': 'newStatus', 'type': 'uint8' },
+                            { 'internalType': 'string',  'name': 'notes',     'type': 'string' }
+                        ],
+                        'name': 'updateAttendance',
+                        'outputs': [],
+                        'stateMutability': 'nonpayable',
+                        'type': 'function'
+                    },
+                    {
+                        'inputs': [
+                            { 'internalType': 'uint256', 'name': 'recordId', 'type': 'uint256' }
+                        ],
+                        'name': 'getAttendanceRecord',
+                        'outputs': [
+                            {
+                                'components': [
+                                    { 'internalType': 'uint256', 'name': 'recordId',      'type': 'uint256' },
+                                    { 'internalType': 'uint256', 'name': 'classId',       'type': 'uint256' },
+                                    { 'internalType': 'address', 'name': 'studentAddress','type': 'address' },
+                                    { 'internalType': 'uint256', 'name': 'sessionDate',   'type': 'uint256' },
+                                    { 'internalType': 'uint8',   'name': 'status',        'type': 'uint8' },
+                                    { 'internalType': 'string',  'name': 'notes',         'type': 'string' },
+                                    { 'internalType': 'address', 'name': 'markedBy',      'type': 'address' },
+                                    { 'internalType': 'uint256', 'name': 'markedAt',      'type': 'uint256' }
+                                ],
+                                'internalType': 'struct DataTypes.AttendanceRecord',
+                                'name': '',
+                                'type': 'tuple'
+                            }
+                        ],
+                        'stateMutability': 'view',
+                        'type': 'function'
+                    }
+                ]";
+
+                [Event("AttendanceMarked")]
+                private class AttendanceMarkedEventDto : IEventDTO
+                {
+                        [Parameter("uint256", "recordId", 1, true)]
+                        public BigInteger RecordId { get; set; }
+
+                        [Parameter("uint256", "classId", 2, true)]
+                        public BigInteger ClassId { get; set; }
+
+                        [Parameter("address", "studentAddress", 3, true)]
+                        public string StudentAddress { get; set; } = string.Empty;
+
+                        [Parameter("uint8", "status", 4, false)]
+                        public byte Status { get; set; }
+
+                        [Parameter("address", "markedBy", 5, false)]
+                        public string MarkedBy { get; set; } = string.Empty;
+                }
+
+                [FunctionOutput]
+                public class AttendanceOnChainStructDto : IFunctionOutputDTO
+                {
+                    [Parameter("uint256", "recordId", 1)]
+                    public BigInteger RecordId { get; set; }
+
+                    [Parameter("uint256", "classId", 2)]
+                    public BigInteger ClassId { get; set; }
+
+                    [Parameter("address", "studentAddress", 3)]
+                    public string StudentAddress { get; set; } = string.Empty;
+
+                    [Parameter("uint256", "sessionDate", 4)]
+                    public BigInteger SessionDate { get; set; }
+
+                    [Parameter("uint8", "status", 5)]
+                    public byte Status { get; set; }
+
+                    // Convenience property for mapping on-chain status to domain enum
+                    public AttendanceStatusEnum StatusEnum { get; set; }
+
+                    [Parameter("string", "notes", 6)]
+                    public string Notes { get; set; } = string.Empty;
+
+                    [Parameter("address", "markedBy", 7)]
+                    public string MarkedBy { get; set; } = string.Empty;
+
+                    [Parameter("uint256", "markedAt", 8)]
+                    public BigInteger MarkedAt { get; set; }
+                }
+
+                [Function("getAttendanceRecord", typeof(AttendanceOnChainStructDto))]
+                public class GetAttendanceRecordFunction : FunctionMessage
+                {
+                        [Parameter("uint256", "recordId", 1)]
+                        public BigInteger RecordId { get; set; }
+                }
+
+                public async Task<(long BlockchainRecordId, string TransactionHash)> MarkAttendanceOnChainAsync(
+                        ulong classId,
+                        string studentWalletAddress,
+                        ulong sessionDateUnixSeconds,
+                        byte status,
+                        string notes)
+                {
+                        try
+                        {
+                                _logger.LogInformation(
+                                        "Marking attendance on blockchain. Class: {ClassId}, Student: {Student}, Status: {Status}",
+                                        classId,
+                                        studentWalletAddress,
+                                        status);
+
+                                var txHash = await SendTransactionAsync(
+                                        _settings.Contracts.AttendanceManagement,
+                                        AttendanceManagementAbi,
+                                        "markAttendance",
+                                        (BigInteger)classId,
+                                        studentWalletAddress,
+                                        (BigInteger)sessionDateUnixSeconds,
+                                        status,
+                                        notes
+                                );
+
+                                var receipt = await WaitForTransactionReceiptAsync(txHash, _settings.TransactionTimeout);
+
+                                var evt = receipt
+                                        .DecodeAllEvents<AttendanceMarkedEventDto>()
+                                        .Select(e => e.Event)
+                                        .FirstOrDefault(e =>
+                                                string.Equals(e.StudentAddress, studentWalletAddress, StringComparison.OrdinalIgnoreCase) &&
+                                                (ulong)e.ClassId == classId);
+
+                                long recordId = 0;
+                                if (evt != null)
+                                {
+                                        recordId = (long)evt.RecordId;
+                                        _logger.LogDebug(
+                                                "AttendanceMarked event decoded. RecordId: {RecordId}, ClassId: {ClassId}, Student: {Student}",
+                                                recordId,
+                                                evt.ClassId,
+                                                evt.StudentAddress);
+                                }
+                                else
+                                {
+                                        _logger.LogWarning(
+                                                "AttendanceMarked event not found in receipt {TxHash}. RecordId will be 0.",
+                                                txHash);
+                                }
+
+                                _logger.LogInformation(
+                                        "Attendance marked successfully. TxHash: {TxHash}, RecordId: {RecordId}",
+                                        txHash,
+                                        recordId);
+
+                                return (recordId, txHash);
+                        }
+                        catch (Exception ex)
+                        {
+                                _logger.LogError(ex, "Failed to mark attendance on blockchain");
+                                throw;
+                        }
+                }
+
+                public async Task<AttendanceOnChainStructDto> GetAttendanceFromChainAsync(long blockchainRecordId)
+                {
+                        try
+                        {
+                                _logger.LogInformation(
+                                        "Getting attendance from blockchain. RecordId: {RecordId}",
+                                        blockchainRecordId);
+
+                                var handler = _web3.Eth.GetContractQueryHandler<GetAttendanceRecordFunction>();
+                                var function = new GetAttendanceRecordFunction
+                                {
+                                        RecordId = new BigInteger(blockchainRecordId)
+                                };
+
+                                    var result = await handler
+                                        .QueryDeserializingToObjectAsync<AttendanceOnChainStructDto>(
+                                            function,
+                                            _settings.Contracts.AttendanceManagement);
+
+                                    try
+                                    {
+                                        result.StatusEnum = (AttendanceStatusEnum)result.Status;
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(
+                                            ex,
+                                            "Failed to map attendance status value {Status} to AttendanceStatusEnum for record {RecordId}",
+                                            result.Status,
+                                            blockchainRecordId);
+                                    }
+
+                                    _logger.LogInformation(
+                                        "Got attendance from chain. RecordId: {RecordId}, Status: {Status}, ClassId: {ClassId}",
+                                        result.RecordId,
+                                        result.Status,
+                                        result.ClassId);
+
+                                    return result;
+                        }
+                        catch (Exception ex)
+                        {
+                                _logger.LogError(ex, "Failed to get attendance from blockchain. RecordId: {RecordId}", blockchainRecordId);
+                                throw;
+                        }
+                }
+
+                #endregion
+
         /// <summary>
         /// DTO for getCredential return struct
         /// Must match DataTypes.Credential tuple in the smart contract.

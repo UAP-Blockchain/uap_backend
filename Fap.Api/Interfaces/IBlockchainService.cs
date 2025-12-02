@@ -76,6 +76,23 @@ namespace Fap.Api.Interfaces
         /// Get total credential count from contract
         /// </summary>
         Task<long> GetCredentialCountAsync();
+
+        // ============ Attendance Management (AttendanceManagement.sol) ============
+
+        /// <summary>
+        /// Mark attendance on AttendanceManagement contract
+        /// </summary>
+        Task<(long BlockchainRecordId, string TransactionHash)> MarkAttendanceOnChainAsync(
+            ulong classId,
+            string studentWalletAddress,
+            ulong sessionDateUnixSeconds,
+            byte status,
+            string notes);
+
+        /// <summary>
+        /// Get attendance record data from chain
+        /// </summary>
+        Task<Services.BlockchainService.AttendanceOnChainStructDto> GetAttendanceFromChainAsync(long blockchainRecordId);
     }
 
     // DTO type is declared in BlockchainService to carry Nethereum attributes.

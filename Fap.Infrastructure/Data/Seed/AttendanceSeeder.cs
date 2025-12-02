@@ -55,6 +55,10 @@ namespace Fap.Infrastructure.Data.Seed
      ExcuseReason = attendancePattern.ExcuseReason,
   Notes = attendancePattern.Notes,
               RecordedAt = slot.Date.AddHours(random.Next(1, 3)) // Recorded during or after class
+              // Blockchain fields (left as default for seeded data):
+              // OnChainRecordId = null,
+              // OnChainTransactionHash = null,
+              // IsOnBlockchain = false
          };
 
          attendances.Add(attendance);
