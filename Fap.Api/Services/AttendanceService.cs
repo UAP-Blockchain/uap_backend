@@ -17,11 +17,12 @@ namespace Fap.Api.Services
         private readonly IMapper _mapper;
         private readonly IValidationService _validationService;
 
-        public AttendanceService(IUnitOfWork unitOfWork, IMapper mapper, IValidationService validationService)
+        public AttendanceService(IUnitOfWork unitOfWork, IMapper mapper, IValidationService validationService, IBlockchainService blockchainService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _validationService = validationService;
+            _blockchainService = blockchainService;
         }
 
         #region Basic CRUD
@@ -55,6 +56,18 @@ namespace Fap.Api.Services
         {
             var attendances = await _unitOfWork.Attendances.GetByStudentIdAsync(studentId);
             return _mapper.Map<IEnumerable<AttendanceDto>>(attendances);
+        }
+
+        private static byte ResolveOnChainStatus(Attendance attendance)
+        {
+            if (attendance.IsPresent) return 0; // PRESENT
+            if (!attendance.IsPresent && attendance.IsExcused) return 3; // EXCUSED
+            return 1; // ABSENT
+        }
+
+        private static ulong ToUnixSecondsUtc(DateTime dateTimeUtc)
+        {
+            return (ulong)new DateTimeOffset(dateTimeUtc, TimeSpan.Zero).ToUnixTimeSeconds();
         }
 
         #endregion
@@ -115,6 +128,44 @@ namespace Fap.Api.Services
             }
 
             await _unitOfWork.SaveChangesAsync();
+
+            try
+            {
+                var onChainClassId = (ulong)Math.Abs(classData.Id.GetHashCode());
+                var sessionDateUnix = ToUnixSecondsUtc(slot.Date.ToUniversalTime());
+
+                foreach (var attendance in attendances)
+                {
+                    var student = await _unitOfWork.Students.GetByIdAsync(attendance.StudentId);
+                    var wallet = student?.User?.WalletAddress;
+                    if (string.IsNullOrWhiteSpace(wallet))
+                    {
+                        continue;
+                    }
+
+                    var status = ResolveOnChainStatus(attendance);
+
+                    var (recordId, txHash) = await _blockchainService.MarkAttendanceOnChainAsync(
+                        onChainClassId,
+                        wallet,
+                        sessionDateUnix,
+                        status,
+                        attendance.Notes ?? string.Empty
+                    );
+
+                    attendance.OnChainRecordId = recordId;
+                    attendance.OnChainTransactionHash = txHash;
+                    attendance.IsOnBlockchain = recordId > 0;
+
+                    _unitOfWork.Attendances.Update(attendance);
+                }
+
+                await _unitOfWork.SaveChangesAsync();
+            }
+            catch
+            {
+                // Best-effort: ignore blockchain failures to not block attendance flow
+            }
 
             var attendancesWithDetails = await _unitOfWork.Attendances.GetBySlotIdAsync(request.SlotId);
             return _mapper.Map<IEnumerable<AttendanceDto>>(attendancesWithDetails);

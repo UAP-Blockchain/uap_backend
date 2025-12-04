@@ -17,7 +17,7 @@ namespace Fap.Domain.Settings
         /// Đường dẫn để xác thực chứng chỉ (VD: certificates/verify)
         /// </summary>
         [Required]
-        public string VerifyPath { get; set; } = "certificates/verify";
+        public string VerifyPath { get; set; } = "/certificates/verify";
 
         /// <summary>
         /// Kích thước QR Code mặc định (pixels)

@@ -1,5 +1,5 @@
-using Nethereum.Web3;
 using Nethereum.RPC.Eth.DTOs;
+using Nethereum.Web3;
 
 namespace Fap.Api.Interfaces
 {
@@ -8,72 +8,92 @@ namespace Fap.Api.Interfaces
     /// </summary>
     public interface IBlockchainService
     {
-        /// <summary>
-        /// Get Web3 instance for direct blockchain interaction
-        /// </summary>
+        // ============ Core ============
+
         Web3 GetWeb3();
 
-        /// <summary>
-        /// Get current account address
-        /// </summary>
         string GetAccountAddress();
 
-        /// <summary>
-        /// Send transaction to smart contract (WRITE operation)
-        /// </summary>
         Task<string> SendTransactionAsync(
             string contractAddress,
             string abi,
             string functionName,
             params object[] parameters);
 
-        /// <summary>
-        /// Call smart contract function (READ operation - no gas)
-        /// </summary>
         Task<T> CallFunctionAsync<T>(
             string contractAddress,
             string abi,
             string functionName,
             params object[] parameters);
 
-        /// <summary>
-        /// Get transaction receipt
-        /// </summary>
         Task<TransactionReceipt?> GetTransactionReceiptAsync(string txHash);
 
-        /// <summary>
-        /// Wait for transaction to be mined
-        /// </summary>
         Task<TransactionReceipt> WaitForTransactionReceiptAsync(
             string txHash,
             int timeoutSeconds = 60);
 
-        /// <summary>
-        /// Get current block number
-        /// </summary>
         Task<ulong> GetBlockNumberAsync();
 
-        /// <summary>
-        /// Check if contract exists at address
-        /// </summary>
         Task<bool> IsContractDeployedAsync(string contractAddress);
 
+        // ============ Credential Management (CredentialManagement.sol) ============
+
         /// <summary>
-        /// Verify certificate on blockchain by hash
+        /// Issue credential on CredentialManagement contract
         /// </summary>
-        Task<bool> VerifyCertificateOnChainAsync(string transactionHash, string certificateHash);
+        Task<(long BlockchainCredentialId, string TransactionHash)> IssueCredentialOnChainAsync(
+            string studentWalletAddress,
+            string credentialType,
+            string credentialDataJson,
+            ulong expiresAtUnixSeconds);
+
+        /// <summary>
+        /// Revoke credential on CredentialManagement contract
+        /// </summary>
+        Task<string> RevokeCredentialOnChainAsync(long blockchainCredentialId);
+
+        /// <summary>
+        /// Verify credential on-chain by its on-chain ID
+        /// </summary>
+        Task<bool> VerifyCredentialOnChainAsync(long blockchainCredentialId);
+
+        /// <summary>
+        /// Get credential data from chain
+        /// </summary>
+        Task<Services.BlockchainService.CredentialOnChainStructDto> GetCredentialFromChainAsync(long blockchainCredentialId);
+
+        /// <summary>
+        /// Debug helper to fetch raw ABI output for getCredential
+        /// </summary>
+        Task<string> DebugGetCredentialRawAsync(long blockchainCredentialId);
+
+        /// <summary>
+        /// Debug helper to decode credential output field-by-field without DTO mapping
+        /// </summary>
+        Task<object> DebugDecodeCredentialAsync(long blockchainCredentialId);
+
+        /// <summary>
+        /// Get total credential count from contract
+        /// </summary>
+        Task<long> GetCredentialCountAsync();
+
+        // ============ Attendance Management (AttendanceManagement.sol) ============
+
+        /// <summary>
+        /// Mark attendance on AttendanceManagement contract
+        /// </summary>
+        Task<(long BlockchainRecordId, string TransactionHash)> MarkAttendanceOnChainAsync(
+            ulong classId,
+            string studentWalletAddress,
+            ulong sessionDateUnixSeconds,
+            byte status,
+            string notes);
+
+        /// <summary>
+        /// Get attendance record data from chain
+        /// </summary>
+        Task<Services.BlockchainService.AttendanceOnChainStructDto> GetAttendanceFromChainAsync(long blockchainRecordId);
     }
 
-    /// <summary>
-    /// Credential data retrieved from blockchain
-    /// </summary>
-    public class CredentialBlockchainData
-    {
-        public Guid CredentialId { get; set; }
-        public string StudentCode { get; set; } = string.Empty;
-        public string CertificateHash { get; set; } = string.Empty;
-        public DateTime IssuedAt { get; set; }
-        public string IssuerAddress { get; set; } = string.Empty;
-        public bool IsRevoked { get; set; }
-    }
+    // DTO type is declared in BlockchainService to carry Nethereum attributes.
 }

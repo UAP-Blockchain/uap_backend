@@ -1,4 +1,5 @@
 using Fap.Api.Interfaces;
+using Fap.Domain.Enums;
 using Fap.Domain.Settings;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,9 +16,6 @@ namespace Fap.Api.Controllers
         private readonly BlockchainSettings _settings;
         private readonly IConfiguration _config;
         private readonly ILogger<BlockchainController> _logger;
-
-        // ABI for CredentialManagement contract
-        private const string CREDENTIAL_ABI = @"[{""inputs"":[{""name"":""credentialId"",""type"":""string""},{""name"":""studentCode"",""type"":""string""},{""name"":""certificateHash"",""type"":""string""}],""name"":""storeCredential"",""outputs"":[],""stateMutability"":""nonpayable"",""type"":""function""},{""inputs"":[{""name"":""credentialId"",""type"":""string""}],""name"":""getCredential"",""outputs"":[{""name"":""studentCode"",""type"":""string""},{""name"":""certificateHash"",""type"":""string""},{""name"":""issuedAt"",""type"":""uint256""},{""name"":""issuer"",""type"":""address""},{""name"":""isRevoked"",""type"":""bool""}],""stateMutability"":""view"",""type"":""function""}]";
 
         public BlockchainController(IBlockchainService blockchain, IOptions<BlockchainSettings> settings, IConfiguration config, ILogger<BlockchainController> logger)
         {
@@ -117,41 +115,121 @@ namespace Fap.Api.Controllers
             }
         }
 
-        [HttpPost("credentials")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> StoreCredential([FromBody] StoreCredentialRequest request)
+        /// <summary>
+        /// Get credential from blockchain using on-chain credential ID (BlockchainCredentialId)
+        /// </summary>
+        [HttpGet("credentials/on-chain/{blockchainCredentialId:long}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetOnChainCredential(long blockchainCredentialId)
         {
             try
             {
-                var contractAddress = _settings.Contracts.CredentialManagement;
-                var isDeployed = await _blockchain.IsContractDeployedAsync(contractAddress);
-                if (!isDeployed) return BadRequest(new { success = false, message = $"CredentialManagement contract not deployed at {contractAddress}" });
-                _logger.LogInformation("?? Storing credential: {CredentialId} for student {StudentCode}", request.CredentialId, request.StudentCode);
-                var txHash = await _blockchain.SendTransactionAsync(contractAddress, CREDENTIAL_ABI, "storeCredential", request.CredentialId.ToString(), request.StudentCode, request.CertificateHash);
-                return Ok(new { success = true, transactionHash = txHash, message = "Credential stored on blockchain successfully", data = new { credentialId = request.CredentialId, studentCode = request.StudentCode, certificateHash = request.CertificateHash }, timestamp = DateTime.UtcNow });
+            _logger.LogInformation("?? Getting on-chain credential: {BlockchainCredentialId}", blockchainCredentialId);
+            var data = await _blockchain.GetCredentialFromChainAsync(blockchainCredentialId);
+
+                var statusEnum = data.StatusEnum;
+                var statusText = statusEnum switch
+                {
+                    BlockchainCredentialStatus.Pending => "Pending",
+                    BlockchainCredentialStatus.Active => "Issued",
+                    BlockchainCredentialStatus.Revoked => "Revoked",
+                    BlockchainCredentialStatus.Expired => "Expired",
+                    _ => "Unknown"
+                };
+
+                return Ok(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        credentialId = data.CredentialId.ToString(),
+                        studentAddress = data.StudentAddress,
+                        credentialType = data.CredentialType,
+                        credentialData = data.CredentialData,
+                        status = (byte)statusEnum,
+                        statusName = statusText,
+                        statusText,
+                        issuedBy = data.IssuedBy,
+                        issuedAt = data.IssuedAt.ToString(),
+                        expiresAt = data.ExpiresAt.ToString()
+                    },
+                    timestamp = DateTime.UtcNow
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "? Failed to store credential");
-                return StatusCode(500, new { success = false, message = "Failed to store credential on blockchain", error = ex.Message, timestamp = DateTime.UtcNow });
+                _logger.LogError(ex, "? Failed to get on-chain credential {BlockchainCredentialId}", blockchainCredentialId);
+                return NotFound(new
+                {
+                    success = false,
+                    message = "On-chain credential not found",
+                    error = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
             }
         }
 
-        [HttpGet("credentials/{credentialId}")]
+        /// <summary>
+        /// Debug endpoint to inspect raw getCredential output
+        /// </summary>
+        [HttpGet("credentials/on-chain/{blockchainCredentialId:long}/raw")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetCredential(Guid credentialId)
+        public async Task<IActionResult> GetOnChainCredentialRaw(long blockchainCredentialId)
+        {
+            var raw = await _blockchain.DebugGetCredentialRawAsync(blockchainCredentialId);
+            return Ok(new
+            {
+                success = true,
+                blockchainCredentialId,
+                raw,
+                timestamp = DateTime.UtcNow
+            });
+        }
+
+        /// <summary>
+        /// Debug endpoint to decode tuple manually for troubleshooting DTO mapping
+        /// </summary>
+        [HttpGet("credentials/on-chain/{blockchainCredentialId:long}/debug-decode")]
+        [AllowAnonymous]
+        public async Task<IActionResult> DebugDecodeOnChainCredential(long blockchainCredentialId)
+        {
+            var decoded = await _blockchain.DebugDecodeCredentialAsync(blockchainCredentialId);
+            return Ok(new
+            {
+                success = true,
+                blockchainCredentialId,
+                decoded,
+                timestamp = DateTime.UtcNow
+            });
+        }
+
+        /// <summary>
+        /// Get total number of credentials stored on-chain
+        /// </summary>
+        [HttpGet("credentials/count")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetOnChainCredentialCount()
         {
             try
             {
-                var contractAddress = _settings.Contracts.CredentialManagement;
-                _logger.LogInformation("?? Getting credential: {CredentialId}", credentialId);
-                var result = await _blockchain.CallFunctionAsync<dynamic>(contractAddress, CREDENTIAL_ABI, "getCredential", credentialId.ToString());
-                return Ok(new { success = true, data = new CredentialBlockchainData { CredentialId = credentialId, StudentCode = result.studentCode?.ToString() ?? "", CertificateHash = result.certificateHash?.ToString() ?? "", IssuedAt = DateTimeOffset.FromUnixTimeSeconds((long)result.issuedAt).DateTime, IssuerAddress = result.issuer?.ToString() ?? "", IsRevoked = result.isRevoked }, timestamp = DateTime.UtcNow });
+                var count = await _blockchain.GetCredentialCountAsync();
+                return Ok(new
+                {
+                    success = true,
+                    count,
+                    timestamp = DateTime.UtcNow
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "? Failed to get credential");
-                return NotFound(new { success = false, message = "Credential not found on blockchain", error = ex.Message, timestamp = DateTime.UtcNow });
+                _logger.LogError(ex, "Failed to get credential count from blockchain");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Failed to get credential count",
+                    error = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
             }
         }
 
@@ -192,10 +270,4 @@ namespace Fap.Api.Controllers
         }
     }
 
-    public class StoreCredentialRequest
-    {
-        [Required] public Guid CredentialId { get; set; }
-        [Required] public string StudentCode { get; set; } = string.Empty;
-        [Required] public string CertificateHash { get; set; } = string.Empty;
-    }
 }
