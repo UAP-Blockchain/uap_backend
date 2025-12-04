@@ -13,9 +13,10 @@ namespace Fap.Api.Services
 {
     public partial class AttendanceService : IAttendanceService
     {
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly IMapper _mapper;
-        private readonly IValidationService _validationService;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+    private readonly IValidationService _validationService;
+    private readonly IBlockchainService _blockchainService;
 
         public AttendanceService(IUnitOfWork unitOfWork, IMapper mapper, IValidationService validationService, IBlockchainService blockchainService)
         {
