@@ -49,6 +49,9 @@ namespace Fap.Infrastructure.Data.Seed
                 // 7. Subjects & SubjectOfferings (depends on Semesters)
                 await new SubjectOfferingSeeder(context).SeedAsync();
 
+                // 7b. Specializations (depends on Subjects and Teachers)
+                await new SpecializationSeeder(context).SeedAsync();
+
                 // 8. Curriculum Subjects (depends on Curriculums & Subjects)
                 await new CurriculumSubjectSeeder(context).SeedAsync();
 
