@@ -27,7 +27,11 @@ namespace Fap.Infrastructure.Data.Seed
                 .ToListAsync();
 
             // Get all grade components
-            var components = await _context.GradeComponents.ToListAsync();
+            var allComponents = await _context.GradeComponents.ToListAsync();
+            
+            // Identify leaf components (those that are not parents)
+            var parentIds = allComponents.Where(c => c.ParentId.HasValue).Select(c => c.ParentId!.Value).Distinct().ToHashSet();
+            var leafComponents = allComponents.Where(c => !parentIds.Contains(c.Id)).ToList();
 
             var random = new Random(54321); // Fixed seed for consistency
 
@@ -39,11 +43,14 @@ namespace Fap.Infrastructure.Data.Seed
                 // Determine student performance level
                 var performanceLevel = GetStudentPerformanceLevel(random);
 
+                // Get components for this subject only
+                var subjectComponents = leafComponents.Where(c => c.SubjectId == subjectId).ToList();
+
                 // Create grades for each component
-                foreach (var component in components)
+                foreach (var component in subjectComponents)
                 {
                     // Not all components may be graded yet
-                    if (random.Next(100) < 70) // 70% chance component is graded
+                    if (random.Next(100) < 85) // 85% chance component is graded
                     {
                         var score = GenerateScore(performanceLevel, component.Name, random);
 
