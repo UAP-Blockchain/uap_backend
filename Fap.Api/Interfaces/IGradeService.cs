@@ -1,3 +1,4 @@
+using Fap.Domain.DTOs;
 using Fap.Domain.DTOs.Common;
 using Fap.Domain.DTOs.Grade;
 using System;
@@ -23,5 +24,16 @@ namespace Fap.Api.Interfaces
         Task<StudentGradeTranscriptDto?> GetStudentGradesAsync(Guid studentId, GetStudentGradesRequest request);
 
         Task<PagedResult<GradeDto>> GetAllGradesAsync(GetGradesRequest request);
+
+        // ===== ON-CHAIN (GradeManagement) =====
+        /// <summary>
+        /// Chuẩn bị payload để FE gọi GradeManagement.recordGrade(...)
+        /// </summary>
+        Task<GradeOnChainPrepareDto?> PrepareGradeOnChainAsync(Guid gradeId);
+
+        /// <summary>
+        /// Lưu thông tin transaction on-chain của grade (recordGrade/updateGrade/...)
+        /// </summary>
+        Task<ServiceResult<bool>> SaveGradeOnChainAsync(Guid gradeId, SaveGradeOnChainRequest request);
     }
 }
