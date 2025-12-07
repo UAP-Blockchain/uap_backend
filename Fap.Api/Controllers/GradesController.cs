@@ -149,5 +149,64 @@ namespace Fap.Api.Controllers
                 return StatusCode(500, new { message = "An error occurred while retrieving grades" });
             }
         }
+
+        // ===== ON-CHAIN (GradeManagement) =====
+
+        /// <summary>
+        /// GET /api/grades/{id}/on-chain/prepare
+        /// Chuẩn bị payload để FE gọi GradeManagement.recordGrade(...)
+        /// </summary>
+        [HttpGet("{id}/on-chain/prepare")]
+        [Authorize(Roles = "Teacher,Admin")]
+        [ProducesResponseType(typeof(GradeOnChainPrepareDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> PrepareGradeOnChain(Guid id)
+        {
+            try
+            {
+                var dto = await _gradeService.PrepareGradeOnChainAsync(id);
+                if (dto == null)
+                {
+                    return NotFound(new { message = $"Cannot prepare on-chain payload for grade {id}" });
+                }
+
+                return Ok(dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error preparing grade {GradeId} for on-chain", id);
+                return StatusCode(500, new { message = "An error occurred while preparing grade for on-chain" });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/grades/{id}/on-chain
+        /// Lưu thông tin transaction on-chain sau khi FE đã gọi contract thành công
+        /// </summary>
+        [HttpPost("{id}/on-chain")]
+        [Authorize(Roles = "Teacher,Admin")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> SaveGradeOnChain(Guid id, [FromBody] SaveGradeOnChainRequest request)
+        {
+            try
+            {
+                var result = await _gradeService.SaveGradeOnChainAsync(id, request);
+
+                if (!result.Success)
+                {
+                    return BadRequest(new { message = result.Message });
+                }
+
+                return Ok(new { message = result.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving on-chain info for grade {GradeId}", id);
+                return StatusCode(500, new { message = "An error occurred while saving grade on-chain info" });
+            }
+        }
     }
 }

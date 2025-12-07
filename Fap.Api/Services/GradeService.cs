@@ -1,5 +1,7 @@
 using AutoMapper;
 using Fap.Api.Interfaces;
+using Fap.Domain.DTOs;
+using Fap.Domain.DTOs.Common;
 using Fap.Domain.DTOs.Grade;
 using Fap.Domain.Entities;
 using Fap.Domain.Helpers;
@@ -692,6 +694,115 @@ namespace Fap.Api.Services
             {
                 _logger.LogError(ex, "Error getting all grades");
                 throw;
+            }
+        }
+
+        // ===== ON-CHAIN (GradeManagement) =====
+        public async Task<GradeOnChainPrepareDto?> PrepareGradeOnChainAsync(Guid gradeId)
+        {
+            try
+            {
+                var grade = await _uow.Grades.GetByIdWithDetailsAsync(gradeId);
+                if (grade == null)
+                {
+                    return null;
+                }
+
+                // Tìm class on-chain gần nhất có liên quan đến subject này
+                var classesForSubject = await _uow.Classes
+                    .GetQueryable()
+                    .Where(c => c.SubjectOffering.SubjectId == grade.SubjectId
+                                && c.OnChainClassId.HasValue)
+                    .OrderByDescending(c => c.UpdatedAt)
+                    .FirstOrDefaultAsync();
+
+                if (classesForSubject == null || !classesForSubject.OnChainClassId.HasValue)
+                {
+                    // Chưa on-chain class => FE phải xử lý trước
+                    _logger.LogWarning(
+                        "PrepareGradeOnChain: class for student {StudentId} subject {SubjectId} is null or not on-chain",
+                        grade.StudentId,
+                        grade.SubjectId);
+                    return null;
+                }
+
+                var studentWallet = grade.Student.User.WalletAddress;
+                if (string.IsNullOrWhiteSpace(studentWallet))
+                {
+                    _logger.LogWarning(
+                        "PrepareGradeOnChain: student {StudentId} has no wallet address",
+                        grade.StudentId);
+                    return null;
+                }
+
+                // Chuyển score sang dạng uint cho contract (ở đây tạm nhân 100 để giữ 2 chữ số sau dấu phẩy)
+                var score = grade.Score ?? 0m;
+                const decimal factor = 100m;
+                var onChainScore = (ulong)(score * factor);
+
+                // Giả định MaxScore = 10 cho mọi component (giống Range(0,10))
+                var maxScore = 10m;
+                var onChainMaxScore = (ulong)(maxScore * factor);
+
+                return new GradeOnChainPrepareDto
+                {
+                    GradeId = grade.Id,
+                    StudentId = grade.StudentId,
+                    StudentWalletAddress = studentWallet,
+                    ClassId = classesForSubject.Id,
+                    ComponentName = grade.GradeComponent.Name,
+                    Score = score,
+                    MaxScore = maxScore,
+                    OnChainClassId = (ulong)classesForSubject.OnChainClassId.Value,
+                    OnChainScore = onChainScore,
+                    OnChainMaxScore = onChainMaxScore
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error preparing grade {GradeId} for on-chain", gradeId);
+                return null;
+            }
+        }
+
+        public async Task<ServiceResult<bool>> SaveGradeOnChainAsync(Guid gradeId, SaveGradeOnChainRequest request)
+        {
+            var result = new ServiceResult<bool>();
+
+            try
+            {
+                var grade = await _uow.Grades.GetByIdAsync(gradeId);
+                if (grade == null)
+                {
+                    result.Success = false;
+                    result.Message = $"Grade with ID '{gradeId}' not found";
+                    return result;
+                }
+
+                grade.OnChainTxHash = request.TransactionHash;
+                grade.OnChainBlockNumber = request.BlockNumber;
+                grade.OnChainChainId = request.ChainId;
+                grade.OnChainContractAddress = request.ContractAddress;
+
+                if (request.OnChainGradeId.HasValue)
+                {
+                    grade.OnChainGradeId = request.OnChainGradeId.Value;
+                }
+
+                _uow.Grades.Update(grade);
+                await _uow.SaveChangesAsync();
+
+                result.Success = true;
+                result.Data = true;
+                result.Message = "Grade on-chain info saved successfully";
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving on-chain info for grade {GradeId}", gradeId);
+                result.Success = false;
+                result.Message = "Failed to save on-chain info for grade";
+                return result;
             }
         }
     }
