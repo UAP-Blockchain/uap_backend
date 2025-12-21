@@ -213,7 +213,8 @@ namespace Fap.Api.Controllers
         {
             try
             {
-                var result = await _attendanceService.SaveAttendanceOnChainAsync(id, request);
+                var performedByUserId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var result = await _attendanceService.SaveAttendanceOnChainAsync(id, request, performedByUserId);
                 if (!result.Success)
                 {
                     return BadRequest(new ProblemDetails
