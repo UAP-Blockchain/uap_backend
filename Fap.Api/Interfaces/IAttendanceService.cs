@@ -104,6 +104,6 @@ namespace Fap.Api.Interfaces
         Task<bool> CanExcuseAbsenceAsync(Guid attendanceId, Guid studentUserId);
 
         // On-chain integration (frontend-driven)
-        Task<Fap.Domain.DTOs.ServiceResult<bool>> SaveAttendanceOnChainAsync(Guid attendanceId, SaveAttendanceOnChainRequest request);
+        Task<Fap.Domain.DTOs.ServiceResult<bool>> SaveAttendanceOnChainAsync(Guid attendanceId, SaveAttendanceOnChainRequest request, Guid performedByUserId);
     }
 }

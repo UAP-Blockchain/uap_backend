@@ -3,12 +3,15 @@ using Fap.Domain.DTOs.Attendance;
 using Fap.Domain.DTOs; // ServiceResult
 using Fap.Domain.Entities;
 using Fap.Domain.Repositories;
+using Fap.Domain.Settings;
+using Fap.Infrastructure.Data;
 using AutoMapper;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Fap.Api.Services
 {
@@ -18,17 +21,26 @@ namespace Fap.Api.Services
     private readonly IMapper _mapper;
     private readonly IValidationService _validationService;
     private readonly IBlockchainService _blockchainService;
+    private readonly FapDbContext _db;
+    private readonly ILogger<AttendanceService> _logger;
+    private readonly BlockchainSettings _blockchainSettings;
 
         public AttendanceService(
             IUnitOfWork unitOfWork,
             IMapper mapper,
             IValidationService validationService,
-            IBlockchainService blockchainService)
+            IBlockchainService blockchainService,
+            FapDbContext db,
+            ILogger<AttendanceService> logger,
+            IOptions<BlockchainSettings> blockchainSettings)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _validationService = validationService;
             _blockchainService = blockchainService;
+            _db = db;
+            _logger = logger;
+            _blockchainSettings = blockchainSettings.Value;
         }
 
         #region Basic CRUD
@@ -437,7 +449,7 @@ namespace Fap.Api.Services
             return student != null && student.UserId == studentUserId;
         }
 
-        public async Task<ServiceResult<bool>> SaveAttendanceOnChainAsync(Guid attendanceId, SaveAttendanceOnChainRequest request)
+        public async Task<ServiceResult<bool>> SaveAttendanceOnChainAsync(Guid attendanceId, SaveAttendanceOnChainRequest request, Guid performedByUserId)
         {
             var attendance = await _unitOfWork.Attendances.GetByIdAsync(attendanceId);
             if (attendance == null)
@@ -445,11 +457,159 @@ namespace Fap.Api.Services
                 return ServiceResult<bool>.Fail("Attendance not found");
             }
 
+            if (string.IsNullOrWhiteSpace(request.TransactionHash))
+            {
+                return ServiceResult<bool>.Fail("TransactionHash is required");
+            }
+
+            var txHash = request.TransactionHash.Trim();
+
+            // 1) Fetch receipt from chain (do not trust FE for block/time)
+            Nethereum.RPC.Eth.DTOs.TransactionReceipt receipt;
+            try
+            {
+                receipt = await _blockchainService.WaitForTransactionReceiptAsync(txHash, timeoutSeconds: 120);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not fetch transaction receipt for TxHash={TxHash}", txHash);
+                return ServiceResult<bool>.Fail("Could not fetch transaction receipt (timeout or invalid txHash)");
+            }
+
+            var blockNumber = receipt.BlockNumber?.Value;
+            if (blockNumber == null)
+            {
+                return ServiceResult<bool>.Fail("Receipt did not include BlockNumber");
+            }
+
+            // 2) Decode known events for audit/validation
+            IReadOnlyList<(string EventName, string ContractAddress, string DetailJson)> decodedEvents;
+            try
+            {
+                decodedEvents = await _blockchainService.DecodeReceiptEventsAsync(txHash);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not decode receipt events for TxHash={TxHash}", txHash);
+                decodedEvents = Array.Empty<(string, string, string)>();
+            }
+
+            // Only log/validate attendance-related events (avoid logging unrelated known events)
+            var attendanceEvents = decodedEvents
+                .Where(e =>
+                    string.Equals(e.EventName, "AttendanceMarked", StringComparison.Ordinal) ||
+                    string.Equals(e.EventName, "AttendanceUpdated", StringComparison.Ordinal))
+                .ToList();
+
+            if (attendanceEvents.Count == 0)
+            {
+                return ServiceResult<bool>.Fail("Transaction receipt did not contain an expected attendance event (AttendanceMarked/AttendanceUpdated)");
+            }
+
+            // 3) Fetch tx for TxFrom/TxTo (auditability) + optional contract target validation
+            string? txFrom = null;
+            string? txTo = null;
+            try
+            {
+                var web3 = _blockchainService.GetWeb3();
+                var tx = await web3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(txHash);
+                txFrom = tx?.From;
+                txTo = tx?.To;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not resolve tx from/to for TxHash={TxHash}", txHash);
+            }
+
+            var expectedContractAddress = _blockchainSettings.Contracts?.AttendanceManagement;
+            if (!string.IsNullOrWhiteSpace(expectedContractAddress) &&
+                !string.IsNullOrWhiteSpace(txTo) &&
+                !string.Equals(txTo, expectedContractAddress, StringComparison.OrdinalIgnoreCase))
+            {
+                return ServiceResult<bool>.Fail("Transaction did not target AttendanceManagement contract");
+            }
+
+            // 3.5) Resolve OnChainClassId (server-side) for richer audit details
+            long? onChainClassId = null;
+            try
+            {
+                var slot = await _unitOfWork.Slots.GetByIdWithDetailsAsync(attendance.SlotId);
+                onChainClassId = slot?.Class?.OnChainClassId;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not resolve OnChainClassId for AttendanceId={AttendanceId}", attendanceId);
+            }
+
             attendance.OnChainRecordId = request.OnChainRecordId;
-            attendance.OnChainTransactionHash = request.TransactionHash;
+            attendance.OnChainTransactionHash = txHash;
             attendance.IsOnBlockchain = true;
 
             _unitOfWork.Attendances.Update(attendance);
+
+            // 4) Persist ActionLogs for audit trail (actor is whoever performed the sync)
+            foreach (var e in attendanceEvents)
+            {
+                string detail;
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(e.DetailJson);
+                    var root = doc.RootElement;
+                    object? indexedArgs = null;
+                    if (root.ValueKind == System.Text.Json.JsonValueKind.Object && root.TryGetProperty("indexedArgs", out var ia))
+                    {
+                        indexedArgs = ia.Clone();
+                    }
+
+                    detail = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        attendanceId,
+                        slotId = attendance.SlotId,
+                        studentId = attendance.StudentId,
+                        onChainClassId,
+                        onChainRecordId = request.OnChainRecordId,
+                        contractAddress = e.ContractAddress,
+                        eventName = e.EventName,
+                        indexedArgs
+                    });
+                }
+                catch
+                {
+                    detail = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        attendanceId,
+                        slotId = attendance.SlotId,
+                        studentId = attendance.StudentId,
+                        onChainClassId,
+                        onChainRecordId = request.OnChainRecordId,
+                        contractAddress = e.ContractAddress,
+                        eventName = e.EventName,
+                        decoded = e.DetailJson
+                    });
+                }
+
+                if (detail.Length > 500)
+                {
+                    detail = detail.Substring(0, 500);
+                }
+
+                _db.ActionLogs.Add(new ActionLog
+                {
+                    Id = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow,
+                    Action = "ATTENDANCE_ONCHAIN_SYNC",
+                    Detail = detail,
+                    UserId = performedByUserId,
+                    TransactionHash = txHash,
+                    BlockNumber = (long)blockNumber,
+                    EventName = e.EventName,
+                    TxFrom = txFrom,
+                    TxTo = txTo,
+                    ContractAddress = e.ContractAddress,
+                    CredentialId = null
+                });
+            }
+
             await _unitOfWork.SaveChangesAsync();
 
             return ServiceResult<bool>.SuccessResponse(true);

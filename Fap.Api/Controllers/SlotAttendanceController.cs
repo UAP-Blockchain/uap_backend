@@ -66,11 +66,10 @@ namespace Fap.Api.Controllers
         {
             try
             {
-                var teacherId = await GetCurrentTeacherIdAsync();
-
-                // Validate authorization (unless admin)
+                // Validate authorization (admin bypasses)
                 if (!User.IsInRole("Admin"))
                 {
+                    var teacherId = await GetCurrentTeacherIdAsync();
                     if (!await _attendanceService.CanTakeAttendanceForSlotAsync(slotId, teacherId))
                     {
                         return Forbid();
@@ -96,7 +95,7 @@ namespace Fap.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error taking attendance for slot {slotId}: {ex.Message}");
+                _logger.LogError(ex, "Error taking attendance for slot {SlotId}", slotId);
                 return StatusCode(500, new { success = false, message = "An error occurred" });
             }
         }
@@ -129,7 +128,7 @@ namespace Fap.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error getting attendance for slot {slotId}: {ex.Message}");
+                _logger.LogError(ex, "Error getting attendance for slot {SlotId}", slotId);
                 return StatusCode(500, new { success = false, message = "An error occurred" });
             }
         }
@@ -145,10 +144,9 @@ namespace Fap.Api.Controllers
         {
             try
             {
-                var teacherId = await GetCurrentTeacherIdAsync();
-
                 if (!User.IsInRole("Admin"))
                 {
+                    var teacherId = await GetCurrentTeacherIdAsync();
                     if (!await _attendanceService.CanTakeAttendanceForSlotAsync(slotId, teacherId))
                     {
                         return Forbid();
@@ -174,7 +172,7 @@ namespace Fap.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error updating attendance for slot {slotId}: {ex.Message}");
+                _logger.LogError(ex, "Error updating attendance for slot {SlotId}", slotId);
                 return StatusCode(500, new { success = false, message = "An error occurred" });
             }
         }
@@ -188,10 +186,9 @@ namespace Fap.Api.Controllers
         {
             try
             {
-                var teacherId = await GetCurrentTeacherIdAsync();
-
                 if (!User.IsInRole("Admin"))
                 {
+                    var teacherId = await GetCurrentTeacherIdAsync();
                     if (!await _attendanceService.CanTakeAttendanceForSlotAsync(slotId, teacherId))
                     {
                         return Forbid();
@@ -217,7 +214,7 @@ namespace Fap.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error deleting attendance for slot {slotId}: {ex.Message}");
+                _logger.LogError(ex, "Error deleting attendance for slot {SlotId}", slotId);
                 return StatusCode(500, new { success = false, message = "An error occurred" });
             }
         }
@@ -233,10 +230,9 @@ namespace Fap.Api.Controllers
         {
             try
             {
-                var teacherId = await GetCurrentTeacherIdAsync();
-
                 if (!User.IsInRole("Admin"))
                 {
+                    var teacherId = await GetCurrentTeacherIdAsync();
                     if (!await _attendanceService.CanTakeAttendanceForSlotAsync(slotId, teacherId))
                     {
                         return Forbid();
@@ -262,7 +258,7 @@ namespace Fap.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error marking all present for slot {slotId}: {ex.Message}");
+                _logger.LogError(ex, "Error marking all present for slot {SlotId}", slotId);
                 return StatusCode(500, new { success = false, message = "An error occurred" });
             }
         }
@@ -276,10 +272,9 @@ namespace Fap.Api.Controllers
         {
             try
             {
-                var teacherId = await GetCurrentTeacherIdAsync();
-
                 if (!User.IsInRole("Admin"))
                 {
+                    var teacherId = await GetCurrentTeacherIdAsync();
                     if (!await _attendanceService.CanTakeAttendanceForSlotAsync(slotId, teacherId))
                     {
                         return Forbid();
@@ -305,7 +300,7 @@ namespace Fap.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error marking all absent for slot {slotId}: {ex.Message}");
+                _logger.LogError(ex, "Error marking all absent for slot {SlotId}", slotId);
                 return StatusCode(500, new { success = false, message = "An error occurred" });
             }
         }
