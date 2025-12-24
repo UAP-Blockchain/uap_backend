@@ -35,7 +35,9 @@ namespace Fap.Api.Mappings
         .ForMember(dest => dest.StudentCode, opt => opt.MapFrom(src => src.Student.StudentCode))
         .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.SubjectName : null))
         .ForMember(dest => dest.SemesterName, opt => opt.MapFrom(src => src.Semester != null ? src.Semester.Name : null))
-        .ForMember(dest => dest.RoadmapName, opt => opt.MapFrom(src => src.StudentRoadmap != null ? "Student Roadmap" : null));
+        .ForMember(dest => dest.RoadmapName, opt => opt.MapFrom(src => src.StudentRoadmap != null ? "Student Roadmap" : null))
+        .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
+        .ForMember(dest => dest.ProcessedAt, opt => opt.MapFrom(src => src.ProcessedAt));
 
       // Template mappings
       CreateMap<CertificateTemplate, CertificateTemplateDto>();
